@@ -1,4 +1,3 @@
-
 import { Audit } from '@/types/types';
 import { toast } from 'sonner';
 
@@ -222,20 +221,8 @@ export const saveAuditsToStorage = (userEmail: string | null, audits: Audit[]) =
     const storageKey = getStorageKey(userEmail);
     localStorage.setItem(storageKey, JSON.stringify(audits));
     
-    // If saving user-specific audits, also update the global audit storage
-    if (userEmail && storageKey !== GLOBAL_AUDITS_KEY) {
-      // Get all current global audits
-      const globalAudits = getStoredAudits(null);
-      
-      // Remove this user's old audits
-      const filteredGlobalAudits = globalAudits.filter(audit => audit.ownerId !== userEmail);
-      
-      // Add this user's new audits
-      const updatedGlobalAudits = [...filteredGlobalAudits, ...audits];
-      
-      // Save back to global storage
-      localStorage.setItem(GLOBAL_AUDITS_KEY, JSON.stringify(updatedGlobalAudits));
-    }
+    // We're now directly handling global storage in each operation function
+    // So we don't need the additional logic here that was causing conflicts
   } catch (error) {
     console.error("Error saving audits to localStorage:", error);
     toast.error("שגיאה בשמירת נתונים מקומית");

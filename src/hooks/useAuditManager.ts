@@ -28,6 +28,8 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
     // 2. There are no stored audits for this user
     // 3. User has not been initialized before
     if (storedAudits.length === 0 && user.role === "בודק" && !isUserInitialized(user.email)) {
+      console.log("Initializing user with sample data");
+      
       // Update the sample audits to have the current user as owner
       const userSampleAudits = sampleAudits.map(audit => ({
         ...audit,
@@ -40,6 +42,12 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
       
       // Save these to localStorage with proper keys
       saveAuditsToStorage(user.email, userSampleAudits);
+      
+      // Also save to global storage properly
+      const globalAudits = getStoredAudits(null);
+      const otherUserAudits = globalAudits.filter(audit => audit.ownerId !== user.email);
+      saveAuditsToStorage(null, [...otherUserAudits, ...userSampleAudits]);
+      
       return userSampleAudits;
     }
     
@@ -50,20 +58,9 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
   const [newlyCreatedAudit, setNewlyCreatedAudit] = useState<Audit | null>(null);
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
 
-  // Save audits to localStorage whenever they change and user is logged in
-  useEffect(() => {
-    if (user?.email) {
-      // For regular users, save only their audits
-      if (user.role === "בודק") {
-        saveAuditsToStorage(user.email, audits.filter(audit => audit.ownerId === user.email));
-      } 
-      // For managers, save all audits globally
-      else if (user.role === "מנהלת") {
-        saveAuditsToStorage(null, audits);
-      }
-    }
-  }, [audits, user?.email, user?.role]);
-
+  // We don't need this useEffect anymore as we're now handling storage updates directly in the operation functions
+  // This prevents conflicts and synchronization issues
+  
   // Determine which audits the user can see
   const filteredAudits = user?.role === "מנהלת" 
     ? audits 
@@ -81,16 +78,6 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
 
   const handleDeleteAudit = (id: string, canDelete: (auditOwnerId: string) => boolean) => {
     const updatedAudits = deleteAudit(id, audits, user, canDelete);
-    
-    // If all user audits were deleted, make sure to update global storage too
-    if (user?.email && user.role === "בודק") {
-      const userAudits = updatedAudits.filter(audit => audit.ownerId === user.email);
-      if (userAudits.length === 0) {
-        // Save empty array to user's storage to prevent reloading sample data
-        saveAuditsToStorage(user.email, []);
-      }
-    }
-    
     setAudits(updatedAudits);
   };
   
