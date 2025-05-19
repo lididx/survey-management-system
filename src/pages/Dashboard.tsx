@@ -12,17 +12,21 @@ import {
   TableCell
 } from "@/components/ui/table";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, X, Edit, ChevronDown, ChevronUp } from "lucide-react";
+import { PlusCircle, X, Edit, ChevronDown, ChevronUp, Mail } from "lucide-react";
 import { 
   Dialog, 
-  DialogContent
+  DialogContent,
+  DialogHeader,
+  DialogTitle
 } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Badge } from "@/components/ui/badge";
 
 import { Audit, StatusType, Contact, User } from "@/types/types";
 import { AuditForm } from "@/components/AuditForm";
 import { StatusLogView } from "@/components/StatusLogView";
 import { EmailTemplatePopup } from "@/components/EmailTemplatePopup";
+import { RecipientCountInput } from "@/components/RecipientCountInput";
 
 // Initial sample data
 const sampleAudits: Audit[] = [
@@ -155,7 +159,8 @@ const sampleAudits: Audit[] = [
 // Mock user data
 const mockUsers: User[] = [
   { id: "user1", name: "אורי כהן", email: "uri@example.com", role: "בודק" },
-  { id: "user2", name: "מיכל לוי", email: "michal@example.com", role: "מנהלת" }
+  { id: "user2", name: "מורן לוי", email: "moran@example.com", role: "בודק" },
+  { id: "user3", name: "חן ישראלי", email: "chen@example.com", role: "מנהלת" }
 ];
 
 const Dashboard = () => {
@@ -167,7 +172,9 @@ const Dashboard = () => {
   const [currentAudit, setCurrentAudit] = useState<Audit | null>(null);
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
   const [showEmailTemplate, setShowEmailTemplate] = useState(false);
+  const [showRecipientInput, setShowRecipientInput] = useState(false);
   const [newlyCreatedAudit, setNewlyCreatedAudit] = useState<Audit | null>(null);
+  const [recipientCount, setRecipientCount] = useState<number>(1);
   
   const navigate = useNavigate();
 
@@ -187,7 +194,50 @@ const Dashboard = () => {
     };
     
     setUser(fullUser);
-  }, [navigate]);
+    
+    // Setup notification check timer for audits that haven't changed status for 7+ days
+    const checkStaleAudits = () => {
+      const staleDays = 7; // 7 days threshold
+      const now = new Date();
+      const staleThreshold = new Date(now.setDate(now.getDate() - staleDays));
+      
+      audits.forEach(audit => {
+        const statusLog = audit.statusLog;
+        if (!statusLog || statusLog.length === 0) return;
+        
+        // Get the most recent status change
+        const latestChange = [...statusLog].sort((a, b) => 
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        )[0];
+        
+        const lastChangeDate = new Date(latestChange.timestamp);
+        
+        // Check if status is one of the ones we need to monitor and has been stale
+        if (
+          (audit.currentStatus === "נשלח מייל תיאום למנהל מערכת" || 
+           audit.currentStatus === "שאלות השלמה מול מנהל מערכת") && 
+          lastChangeDate < staleThreshold
+        ) {
+          // In a real app, we would send an email here
+          // For now, just show a toast notification
+          toast.info(
+            `תזכורת: סטטוס סקר '${audit.name}' לא השתנה`,
+            { 
+              description: `הסטטוס של הסקר '${audit.name}' עדיין ב-${audit.currentStatus} מעל 7 ימים. אנא עדכן/י בהקדם.`,
+              duration: 10000
+            }
+          );
+        }
+      });
+    };
+    
+    // Check once on load and then set up a daily check
+    // In a real app, this would be a scheduled serverside job
+    checkStaleAudits();
+    const interval = setInterval(checkStaleAudits, 24 * 60 * 60 * 1000); // Once per day
+    
+    return () => clearInterval(interval);
+  }, [navigate, audits]);
 
   const handleLogout = () => {
     localStorage.removeItem("user");
@@ -237,9 +287,9 @@ const Dashboard = () => {
       setIsFormOpen(false);
       toast.success("סקר חדש נוצר בהצלחה");
       
-      // Show email template after creation
+      // Show recipient count input after creation
       setNewlyCreatedAudit(newAudit);
-      setShowEmailTemplate(true);
+      setShowRecipientInput(true);
     } else if (formMode === "edit" && currentAudit) {
       const updatedAudits = audits.map(audit => 
         audit.id === currentAudit.id ? { ...audit, ...auditData } : audit
@@ -250,11 +300,18 @@ const Dashboard = () => {
       
       // If status changed to "בבקרה", notify manager
       if (auditData.currentStatus === "בבקרה" && currentAudit.currentStatus !== "בבקרה") {
+        // In a real app, we would send an actual email here
         toast.info("נשלחה התראה למנהלת על סקר לבקרה", {
           description: `סקר "${auditData.name}" עבר לסטטוס בקרה`
         });
       }
     }
+  };
+
+  const handleRecipientCountSubmitted = (count: number) => {
+    setRecipientCount(count);
+    setShowRecipientInput(false);
+    setShowEmailTemplate(true);
   };
 
   const getStatusCounts = () => {
@@ -284,6 +341,30 @@ const Dashboard = () => {
   const formatDate = (date: Date) => {
     if (!date) return "";
     return new Date(date).toLocaleDateString("he-IL");
+  };
+  
+  const getStatusBadge = (status: StatusType) => {
+    let variant = "outline";
+    
+    switch (status) {
+      case "התקבל":
+        variant = "secondary";
+        break;
+      case "בכתיבה":
+      case "נקבע":
+        variant = "default";
+        break;
+      case "בבקרה":
+        variant = "destructive";
+        break;
+      case "הסתיים":
+        variant = "secondary";
+        break;
+      default:
+        variant = "outline";
+    }
+    
+    return <Badge variant={variant as any}>{status}</Badge>;
   };
 
   if (!user) return null;
@@ -372,16 +453,7 @@ const Dashboard = () => {
                     <TableRow key={audit.id}>
                       <TableCell className="font-medium">{audit.name}</TableCell>
                       <TableCell>
-                        <Button 
-                          variant={
-                            audit.currentStatus === "בכתיבה" || audit.currentStatus === "נקבע" ? "default" : 
-                            audit.currentStatus === "הסתיים" ? "secondary" : 
-                            "outline"
-                          }
-                          size="sm"
-                        >
-                          {audit.currentStatus}
-                        </Button>
+                        {getStatusBadge(audit.currentStatus)}
                       </TableCell>
                       <TableCell>
                         {audit.plannedMeetingDate ? formatDate(audit.plannedMeetingDate) : "לא נקבע"}
@@ -392,6 +464,16 @@ const Dashboard = () => {
                         <div className="flex gap-2">
                           <Button variant="outline" size="sm" onClick={() => handleEditAudit(audit)}>
                             <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => {
+                              setNewlyCreatedAudit(audit);
+                              setShowRecipientInput(true);
+                            }}
+                          >
+                            <Mail className="h-4 w-4" />
                           </Button>
                           <Button variant="outline" size="sm" onClick={() => handleExpandLog(audit.id)}>
                             {expandedAuditId === audit.id ? 
@@ -432,6 +514,9 @@ const Dashboard = () => {
       {/* Create Audit Dialog */}
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
         <DialogContent className="sm:max-w-lg md:max-w-3xl" dir="rtl">
+          <DialogHeader>
+            <DialogTitle>הוספת סקר חדש</DialogTitle>
+          </DialogHeader>
           <AuditForm 
             mode="create"
             onSubmit={handleAuditSubmit}
@@ -457,10 +542,21 @@ const Dashboard = () => {
         </SheetContent>
       </Sheet>
 
+      {/* Recipient Count Input Dialog */}
+      {newlyCreatedAudit && (
+        <RecipientCountInput
+          audit={newlyCreatedAudit}
+          open={showRecipientInput}
+          onCancel={() => setShowRecipientInput(false)}
+          onConfirm={handleRecipientCountSubmitted}
+        />
+      )}
+
       {/* Email Template Dialog */}
       {newlyCreatedAudit && (
         <EmailTemplatePopup
           audit={newlyCreatedAudit}
+          recipientCount={recipientCount}
           open={showEmailTemplate}
           onClose={() => {
             setShowEmailTemplate(false);

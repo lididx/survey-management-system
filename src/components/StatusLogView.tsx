@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/table";
 import { StatusChange } from "@/types/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 interface StatusLogViewProps {
   statusLog: StatusChange[];
@@ -27,6 +28,31 @@ export const StatusLogView = ({ statusLog }: StatusLogViewProps) => {
   const formatDate = (date: Date | null) => {
     if (!date) return "-";
     return new Date(date).toLocaleDateString("he-IL");
+  };
+  
+  const getStatusBadge = (status: string | null) => {
+    if (!status) return null;
+    
+    let variant = "outline";
+    switch (status) {
+      case "התקבל":
+        variant = "secondary";
+        break;
+      case "בכתיבה":
+      case "נקבע":
+        variant = "default";
+        break;
+      case "בבקרה":
+        variant = "destructive";
+        break;
+      case "הסתיים":
+        variant = "secondary";
+        break;
+      default:
+        variant = "outline";
+    }
+    
+    return <Badge variant={variant as any}>{status}</Badge>;
   };
 
   return (
@@ -55,9 +81,11 @@ export const StatusLogView = ({ statusLog }: StatusLogViewProps) => {
                 <TableCell>
                   {change.oldStatus && change.newStatus && (
                     <>
-                      <span className="text-gray-600">{change.oldStatus}</span>
-                      <span className="mx-2">➞</span>
-                      <span className="font-medium">{change.newStatus}</span>
+                      <div className="flex items-center gap-2">
+                        {getStatusBadge(change.oldStatus)}
+                        <span className="mx-2">➞</span>
+                        {getStatusBadge(change.newStatus)}
+                      </div>
                     </>
                   )}
                 </TableCell>
