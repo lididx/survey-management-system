@@ -44,7 +44,8 @@ const sampleAudits: Audit[] = [
         newStatus: "התקבל",
         oldDate: null,
         newDate: null,
-        reason: "יצירת סקר"
+        reason: "יצירת סקר",
+        modifiedBy: "לידור"
       },
       {
         id: "s2",
@@ -53,7 +54,8 @@ const sampleAudits: Audit[] = [
         newStatus: "נשלח מייל תיאום למנהל מערכת",
         oldDate: null,
         newDate: null,
-        reason: "נשלח מייל לתיאום"
+        reason: "נשלח מייל לתיאום",
+        modifiedBy: "לידור"
       },
       {
         id: "s3",
@@ -62,7 +64,8 @@ const sampleAudits: Audit[] = [
         newStatus: "נקבע",
         oldDate: null,
         newDate: new Date("2023-06-01"),
-        reason: "התקבל אישור לפגישה"
+        reason: "התקבל אישור לפגישה",
+        modifiedBy: "לידור"
       },
       {
         id: "s4",
@@ -71,7 +74,8 @@ const sampleAudits: Audit[] = [
         newStatus: "בכתיבה",
         oldDate: null,
         newDate: null,
-        reason: "הפגישה הסתיימה, התחלת כתיבת הסקר"
+        reason: "הפגישה הסתיימה, התחלת כתיבת הסקר",
+        modifiedBy: "לידור"
       }
     ],
     ownerId: "lidor@example.com"
@@ -95,7 +99,8 @@ const sampleAudits: Audit[] = [
         newStatus: "התקבל",
         oldDate: null,
         newDate: null,
-        reason: "יצירת סקר"
+        reason: "יצירת סקר",
+        modifiedBy: "לידור"
       },
       {
         id: "s6",
@@ -104,7 +109,8 @@ const sampleAudits: Audit[] = [
         newStatus: "הסתיים",
         oldDate: null,
         newDate: null,
-        reason: "הסקר הסתיים מכיוון שהוחלט לדחות את הפרויקט"
+        reason: "הסקר הסתיים מכיוון שהוחלט לדחות את הפרויקט",
+        modifiedBy: "לידור"
       }
     ],
     ownerId: "lidor@example.com"
@@ -127,7 +133,8 @@ const sampleAudits: Audit[] = [
         newStatus: "התקבל",
         oldDate: null,
         newDate: null,
-        reason: "יצירת סקר"
+        reason: "יצירת סקר",
+        modifiedBy: "מורן"
       },
       {
         id: "s8",
@@ -136,7 +143,8 @@ const sampleAudits: Audit[] = [
         newStatus: "נשלח מייל תיאום למנהל מערכת",
         oldDate: null,
         newDate: null,
-        reason: "נשלח מייל לתיאום"
+        reason: "נשלח מייל לתיאום",
+        modifiedBy: "מורן"
       },
       {
         id: "s9",
@@ -145,7 +153,8 @@ const sampleAudits: Audit[] = [
         newStatus: "נקבע",
         oldDate: null,
         newDate: new Date("2023-06-15"),
-        reason: "התקבל אישור לפגישה"
+        reason: "התקבל אישור לפגישה",
+        modifiedBy: "מורן"
       }
     ],
     ownerId: "moran@example.com"
@@ -260,6 +269,7 @@ const Dashboard = () => {
             mode="create"
             onSubmit={handleAuditFormSubmit}
             onCancel={() => setIsFormOpen(false)}
+            currentUser={user}
           />
         </DialogContent>
       </Dialog>
@@ -276,6 +286,7 @@ const Dashboard = () => {
               audit={currentAudit}
               onSubmit={handleAuditFormSubmit}
               onCancel={() => setIsEditSheetOpen(false)}
+              currentUser={user}
             />
           )}
         </SheetContent>
