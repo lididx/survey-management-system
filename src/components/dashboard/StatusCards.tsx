@@ -9,6 +9,13 @@ interface StatusCountsProps {
   userEmail?: string;
 }
 
+// Define the color scheme to match our status colors
+const statusColors = {
+  new: "#cce5ff", // התקבל - Light Blue
+  active: "#ffeeba", // בכתיבה - Orange
+  completed: "#c3e6cb", // הסתיים - Dark Green
+};
+
 export const StatusCards = ({ audits, userRole, userEmail }: StatusCountsProps) => {
   const getStatusCounts = () => {
     // מקבלים סקרים בהתאם לתפקיד
@@ -41,33 +48,33 @@ export const StatusCards = ({ audits, userRole, userEmail }: StatusCountsProps) 
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-      <Card>
+      <Card style={{ borderTop: `4px solid ${statusColors.active}` }}>
         <CardHeader className="pb-2">
           <CardTitle className="text-lg">סקרים פעילים</CardTitle>
           <CardDescription>סקרים בתהליך עבודה</CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-3xl font-bold">{statusCounts.active}</p>
+          <p className="text-3xl font-bold text-center">{statusCounts.active}</p>
         </CardContent>
       </Card>
       
-      <Card>
+      <Card style={{ borderTop: `4px solid ${statusColors.completed}` }}>
         <CardHeader className="pb-2">
           <CardTitle className="text-lg">סקרים שהושלמו</CardTitle>
           <CardDescription>סקרים שהסתיימו</CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-3xl font-bold">{statusCounts.completed}</p>
+          <p className="text-3xl font-bold text-center">{statusCounts.completed}</p>
         </CardContent>
       </Card>
       
-      <Card>
+      <Card style={{ borderTop: `4px solid ${statusColors.new}` }}>
         <CardHeader className="pb-2">
           <CardTitle className="text-lg">סקרים חדשים</CardTitle>
           <CardDescription>סקרים שהתקבלו</CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-3xl font-bold">{statusCounts.new}</p>
+          <p className="text-3xl font-bold text-center">{statusCounts.new}</p>
         </CardContent>
       </Card>
     </div>

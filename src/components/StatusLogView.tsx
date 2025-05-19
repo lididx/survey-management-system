@@ -8,13 +8,23 @@ import {
   TableHead,
   TableRow,
 } from "@/components/ui/table";
-import { StatusChange } from "@/types/types";
+import { StatusChange, StatusType } from "@/types/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 
 interface StatusLogViewProps {
   statusLog: StatusChange[];
 }
+
+// Status color mapping
+const statusColorMap: Record<StatusType, { bg: string, text: string, border?: string }> = {
+  "התקבל": { bg: "#cce5ff", text: "#004085", border: "#b8daff" },
+  "נשלח מייל תיאום למנהל מערכת": { bg: "#fff3cd", text: "#856404", border: "#ffeeba" },
+  "נקבע": { bg: "#d4edda", text: "#155724", border: "#c3e6cb" },
+  "בכתיבה": { bg: "#ffeeba", text: "#856404", border: "#ffeeba" },
+  "שאלות השלמה מול מנהל מערכת": { bg: "#f8d7da", text: "#721c24", border: "#f5c6cb" },
+  "בבקרה": { bg: "#e2d6f3", text: "#5a2f93", border: "#d5c8ed" },
+  "הסתיים": { bg: "#c3e6cb", text: "#155724", border: "#b1dfbb" }
+};
 
 export const StatusLogView = ({ statusLog }: StatusLogViewProps) => {
   if (!statusLog || statusLog.length === 0) {
@@ -38,32 +48,26 @@ export const StatusLogView = ({ statusLog }: StatusLogViewProps) => {
   const getStatusBadge = (status: string | null) => {
     if (!status) return null;
     
-    let variant = "outline";
-    switch (status) {
-      case "התקבל":
-        variant = "secondary";
-        break;
-      case "בכתיבה":
-      case "נקבע":
-        variant = "default";
-        break;
-      case "בבקרה":
-        variant = "destructive";
-        break;
-      case "הסתיים":
-        variant = "secondary";
-        break;
-      case "שאלות השלמה מול מנהל מערכת":
-        variant = "warning";
-        break;
-      case "נשלח מייל תיאום למנהל מערכת":
-        variant = "outline";
-        break;
-      default:
-        variant = "outline";
-    }
+    const colors = statusColorMap[status as StatusType] || { bg: "#e9ecef", text: "#495057", border: "#dee2e6" };
     
-    return <Badge variant={variant as any}>{status}</Badge>;
+    return (
+      <span 
+        style={{
+          backgroundColor: colors.bg,
+          color: colors.text,
+          border: `1px solid ${colors.border || colors.bg}`,
+          padding: '0.25rem 0.5rem',
+          borderRadius: '9999px',
+          fontSize: '0.75rem',
+          fontWeight: 500,
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}
+      >
+        {status}
+      </span>
+    );
   };
 
   return (
@@ -75,23 +79,23 @@ export const StatusLogView = ({ statusLog }: StatusLogViewProps) => {
         <Table>
           <TableHeader>
             <TableRow className="text-gray-600">
-              <TableHead>תאריך</TableHead>
-              <TableHead>שינוי סטטוס</TableHead>
-              <TableHead>שינוי תאריך</TableHead>
-              <TableHead>סיבה</TableHead>
-              <TableHead>בוצע ע"י</TableHead>
+              <TableHead className="text-center">תאריך</TableHead>
+              <TableHead className="text-center">שינוי סטטוס</TableHead>
+              <TableHead className="text-center">שינוי תאריך</TableHead>
+              <TableHead className="text-center">סיבה</TableHead>
+              <TableHead className="text-center">בוצע ע"י</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {sortedLog.map((change) => (
               <TableRow key={change.id} className="border-b border-gray-200">
-                <TableCell className="whitespace-nowrap text-xs text-gray-500">
+                <TableCell className="whitespace-nowrap text-xs text-gray-500 text-center">
                   {formatDate(change.timestamp)}{" "}
                   {formatTime(change.timestamp)}
                 </TableCell>
-                <TableCell>
+                <TableCell className="text-center">
                   {change.oldStatus || change.newStatus ? (
-                    <div className="flex items-center gap-2 text-sm">
+                    <div className="flex items-center justify-center gap-2 text-sm">
                       {change.oldStatus ? 
                         getStatusBadge(change.oldStatus) : 
                         <span className="text-gray-400">-</span>
@@ -101,7 +105,7 @@ export const StatusLogView = ({ statusLog }: StatusLogViewProps) => {
                     </div>
                   ) : null}
                 </TableCell>
-                <TableCell>
+                <TableCell className="text-center">
                   {(change.oldDate || change.newDate) && (
                     <div className="text-sm">
                       <span className="text-gray-600">{formatDate(change.oldDate)}</span>
@@ -110,8 +114,8 @@ export const StatusLogView = ({ statusLog }: StatusLogViewProps) => {
                     </div>
                   )}
                 </TableCell>
-                <TableCell className="text-sm text-gray-700">{change.reason}</TableCell>
-                <TableCell className="text-sm">{change.modifiedBy || "-"}</TableCell>
+                <TableCell className="text-sm text-gray-700 text-center">{change.reason}</TableCell>
+                <TableCell className="text-sm text-center">{change.modifiedBy || "-"}</TableCell>
               </TableRow>
             ))}
           </TableBody>

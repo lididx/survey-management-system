@@ -50,6 +50,17 @@ const statusOptions: StatusType[] = [
   "הסתיים"
 ];
 
+// Status color mapping
+const statusColorMap: Record<StatusType, { bg: string, text: string, border?: string }> = {
+  "התקבל": { bg: "#cce5ff", text: "#004085", border: "#b8daff" },
+  "נשלח מייל תיאום למנהל מערכת": { bg: "#fff3cd", text: "#856404", border: "#ffeeba" },
+  "נקבע": { bg: "#d4edda", text: "#155724", border: "#c3e6cb" },
+  "בכתיבה": { bg: "#ffeeba", text: "#856404", border: "#ffeeba" },
+  "שאלות השלמה מול מנהל מערכת": { bg: "#f8d7da", text: "#721c24", border: "#f5c6cb" },
+  "בבקרה": { bg: "#e2d6f3", text: "#5a2f93", border: "#d5c8ed" },
+  "הסתיים": { bg: "#c3e6cb", text: "#155724", border: "#b1dfbb" }
+};
+
 export const AuditsTable = ({ 
   audits, 
   userRole, 
@@ -76,33 +87,21 @@ export const AuditsTable = ({
   };
   
   const getStatusBadge = (status: StatusType, audit: Audit) => {
-    let variant = "outline";
+    const colors = statusColorMap[status];
     
-    switch (status) {
-      case "התקבל":
-        variant = "secondary";
-        break;
-      case "נקבע":
-        variant = "default";
-        break;
-      case "בכתיבה":
-        variant = "default";
-        break;
-      case "בבקרה":
-        variant = "destructive";
-        break;
-      case "הסתיים":
-        variant = "secondary";
-        break;
-      case "שאלות השלמה מול מנהל מערכת":
-        variant = "warning";
-        break;
-      case "נשלח מייל תיאום למנהל מערכת":
-        variant = "outline";
-        break;
-      default:
-        variant = "outline";
-    }
+    // Custom badge style based on status color
+    const customBadgeStyle = {
+      backgroundColor: colors.bg,
+      color: colors.text,
+      border: `1px solid ${colors.border || colors.bg}`,
+      padding: '0.25rem 0.5rem',
+      borderRadius: '9999px',
+      fontSize: '0.75rem',
+      fontWeight: 500,
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center'
+    };
 
     // Management users can only update to specific statuses
     if (userRole === "מנהלת" && !canEdit(audit.ownerId)) {
@@ -118,8 +117,8 @@ export const AuditsTable = ({
           }}
           disabled={!canEdit(audit.ownerId) && userRole !== "מנהלת"}
         >
-          <SelectTrigger className={`w-full px-2 py-1 h-auto bg-transparent border-0 hover:bg-gray-100 ${variant}`}>
-            <Badge variant={variant as any}>{status}</Badge>
+          <SelectTrigger className="w-full px-2 py-1 h-auto bg-transparent border-0 hover:bg-gray-100">
+            <span style={customBadgeStyle}>{status}</span>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="בבקרה">בבקרה</SelectItem>
@@ -137,7 +136,7 @@ export const AuditsTable = ({
         disabled={!canEdit(audit.ownerId)}
       >
         <SelectTrigger className="w-full px-2 py-1 h-auto bg-transparent border-0 hover:bg-gray-100">
-          <Badge variant={variant as any}>{status}</Badge>
+          <span style={customBadgeStyle}>{status}</span>
         </SelectTrigger>
         <SelectContent>
           {statusOptions.map(option => (
@@ -153,12 +152,12 @@ export const AuditsTable = ({
       <Table className="min-w-full divide-y divide-gray-200">
         <TableHeader>
           <TableRow className="bg-gray-50 text-gray-700">
-            <TableHead className="p-4 font-medium">שם הסקר</TableHead>
-            <TableHead className="p-4 font-medium">סטטוס</TableHead>
-            <TableHead className="p-4 font-medium">שם לקוח</TableHead>
-            <TableHead className="p-4 font-medium">תאריך פגישה</TableHead>
-            <TableHead className="p-4 font-medium">יוצר הסקר</TableHead>
-            <TableHead className="p-4 font-medium">פעולות</TableHead>
+            <TableHead className="p-4 font-medium text-center">שם הסקר</TableHead>
+            <TableHead className="p-4 font-medium text-center">סטטוס</TableHead>
+            <TableHead className="p-4 font-medium text-center">שם לקוח</TableHead>
+            <TableHead className="p-4 font-medium text-center">תאריך פגישה</TableHead>
+            <TableHead className="p-4 font-medium text-center">יוצר הסקר</TableHead>
+            <TableHead className="p-4 font-medium text-center">פעולות</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -166,22 +165,22 @@ export const AuditsTable = ({
             audits.map((audit) => (
               <React.Fragment key={audit.id}>
                 <TableRow className="hover:bg-gray-100 transition-colors">
-                  <TableCell className="p-4 font-medium">{audit.name}</TableCell>
-                  <TableCell className="p-4">
+                  <TableCell className="p-4 font-medium text-center">{audit.name}</TableCell>
+                  <TableCell className="p-4 text-center">
                     {getStatusBadge(audit.currentStatus, audit)}
                   </TableCell>
-                  <TableCell className="p-4">{audit.clientName || "לא צוין"}</TableCell>
-                  <TableCell className="p-4">
+                  <TableCell className="p-4 text-center">{audit.clientName || "לא צוין"}</TableCell>
+                  <TableCell className="p-4 text-center">
                     {audit.plannedMeetingDate ? formatDate(audit.plannedMeetingDate) : "לא נקבע"}
                   </TableCell>
-                  <TableCell className="p-4">
-                    <div className="flex items-center gap-1">
+                  <TableCell className="p-4 text-center">
+                    <div className="flex items-center justify-center gap-1">
                       <UserCircle className="h-4 w-4 text-gray-400" />
                       <span>{audit.ownerName || "לא ידוע"}</span>
                     </div>
                   </TableCell>
                   <TableCell className="p-4">
-                    <div className="flex gap-2">
+                    <div className="flex justify-center gap-2">
                       {canEdit(audit.ownerId) && (
                         <Button variant="outline" size="sm" onClick={() => onEditAudit(audit)}>
                           <Pencil className="h-4 w-4" />
