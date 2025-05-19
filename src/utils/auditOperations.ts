@@ -1,4 +1,3 @@
-
 import { Audit, User, StatusType } from '@/types/types';
 import { toast } from 'sonner';
 import { 
@@ -9,7 +8,7 @@ import { checkForStalledAudits, sendNotificationEmail } from './notificationUtil
 
 // Debug helper function
 const debugStorage = (message: string, data?: any) => {
-  console.log(`DEBUG: ${message}`, data || '');
+  console.log(`[DEBUG] ${message}`, data || '');
 };
 
 export const createAudit = (
@@ -43,32 +42,46 @@ export const createAudit = (
   const newAudits = [...audits, newAudit];
   
   try {
-    // 1. Always update user-specific storage first (if applicable)
-    if (user.email && user.role === "בודק") {
-      // Get only THIS user's audits (filtering out other users' data that might be in the local state)
-      const userAudits = newAudits.filter(audit => audit.ownerId === user.email);
-      debugStorage(`Saving ${userAudits.length} audits to user-specific storage for ${user.email}`);
-      saveAuditsToStorage(user.email, userAudits);
-    }
-    
-    // 2. ALWAYS update global storage regardless of user role
-    // First get the CURRENT global audits from storage
+    // 1. ALWAYS update global storage FIRST for data integrity
     const globalAudits = getStoredAudits(null);
     debugStorage(`Retrieved ${globalAudits.length} existing global audits`);
     
-    // Remove THIS user's audits from the global list (to avoid duplicates)
+    // Filter out any potential outdated entries for this user in global storage
     const otherUserAudits = globalAudits.filter(audit => audit.ownerId !== user.email);
     debugStorage(`Filtered to ${otherUserAudits.length} audits from other users`);
     
-    // Get THIS user's updated audits
+    // Get this user's updated audits
     const thisUserAudits = newAudits.filter(audit => audit.ownerId === user.email);
+    debugStorage(`User ${user.email} now has ${thisUserAudits.length} audits`);
     
     // Combine other users' audits with this user's updated audits
     const updatedGlobalAudits = [...otherUserAudits, ...thisUserAudits];
     debugStorage(`Saving ${updatedGlobalAudits.length} total audits to global storage`);
     
     // Save the combined list to global storage
-    saveAuditsToStorage(null, updatedGlobalAudits);
+    const globalSaveSuccess = saveAuditsToStorage(null, updatedGlobalAudits);
+    
+    if (!globalSaveSuccess) {
+      debugStorage("Failed to save to global storage, retrying...");
+      // One retry attempt
+      saveAuditsToStorage(null, updatedGlobalAudits);
+    }
+    
+    // 2. Then update user-specific storage if applicable
+    if (user.email && user.role === "בודק") {
+      debugStorage(`Saving ${thisUserAudits.length} audits to user-specific storage for ${user.email}`);
+      saveAuditsToStorage(user.email, thisUserAudits);
+    }
+    
+    debugStorage("Verifying saved data...");
+    // Verification - check that global storage contains the new audit
+    const verifiedGlobalAudits = getStoredAudits(null);
+    const newAuditExists = verifiedGlobalAudits.some(audit => audit.id === newId);
+    
+    if (!newAuditExists) {
+      console.error("CRITICAL: New audit not found in global storage after save!");
+      toast.error("שגיאה באימות שמירת הנתונים");
+    }
   } catch (error) {
     console.error("Error saving audit data:", error);
     toast.error("שגיאה בשמירת הנתונים");

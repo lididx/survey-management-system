@@ -16,37 +16,54 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
   // Initialize audits from localStorage
   const [audits, setAudits] = useState<Audit[]>(() => {
     if (!user) {
-      console.log("No user provided, using initial audits");
+      console.log("[useAuditManager] No user provided, using initial audits");
       return initialAudits;
     }
     
-    console.log(`Initializing audits for user: ${user.email}, role: ${user.role}`);
+    console.log(`[useAuditManager] Initializing audits for user: ${user.email}, role: ${user.role}`);
     
     try {
-      // For managers, we need to load all audits
+      let userAudits: Audit[] = [];
+      
+      // For managers, we need to load all audits from global storage
       if (user.role === "מנהלת") {
-        console.log("Loading all audits for manager");
+        console.log("[useAuditManager] Loading all audits for manager from global storage");
         const allAudits = getStoredAudits(null); // Pass null to get all audits
-        console.log(`Loaded ${allAudits.length} audits from global storage for manager`);
+        console.log(`[useAuditManager] Loaded ${allAudits.length} audits from global storage for manager`);
         return allAudits;
       }
       
       if (!user.email) {
-        console.log("No user email, using initial audits");
+        console.log("[useAuditManager] No user email, using initial audits");
         return initialAudits;
       }
       
       // For regular users, load their specific audits
-      console.log(`Loading audits for user email: ${user.email}`);
-      const storedAudits = getStoredAudits(user.email);
-      console.log(`Loaded ${storedAudits.length} audits for user ${user.email}`);
+      console.log(`[useAuditManager] Loading user-specific audits for: ${user.email}`);
+      userAudits = getStoredAudits(user.email);
+      console.log(`[useAuditManager] Loaded ${userAudits.length} user-specific audits`);
+      
+      // If there are no user-specific audits, check global storage for this user's audits
+      if (userAudits.length === 0) {
+        console.log(`[useAuditManager] No user-specific audits found, checking global storage`);
+        const globalAudits = getStoredAudits(null);
+        const globalUserAudits = globalAudits.filter(audit => audit.ownerId === user.email);
+        console.log(`[useAuditManager] Found ${globalUserAudits.length} audits for user in global storage`);
+        
+        // If audits exist in global storage but not in user-specific storage, save them to user-specific
+        if (globalUserAudits.length > 0) {
+          console.log(`[useAuditManager] Synchronizing global audits to user-specific storage`);
+          saveAuditsToStorage(user.email, globalUserAudits);
+          userAudits = globalUserAudits;
+        }
+      }
       
       // Only seed with sample data if:
       // 1. User is an auditor ("בודק")
-      // 2. There are no stored audits for this user
+      // 2. There are no stored audits for this user anywhere
       // 3. User has not been initialized before
-      if (storedAudits.length === 0 && user.role === "בודק" && !isUserInitialized(user.email)) {
-        console.log("Initializing user with sample data");
+      if (userAudits.length === 0 && user.role === "בודק" && !isUserInitialized(user.email)) {
+        console.log("[useAuditManager] Initializing new user with sample data");
         
         // Update the sample audits to have the current user as owner
         const userSampleAudits = sampleAudits.map(audit => ({
@@ -59,27 +76,68 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
         markUserAsInitialized(user.email);
         
         // Save user-specific audits
-        console.log(`Saving ${userSampleAudits.length} sample audits for user ${user.email}`);
+        console.log(`[useAuditManager] Saving ${userSampleAudits.length} sample audits for user ${user.email}`);
         saveAuditsToStorage(user.email, userSampleAudits);
         
         // CRITICAL: Also save to global storage properly
-        console.log("Updating global storage with sample audits");
+        console.log("[useAuditManager] Updating global storage with sample audits");
         const globalAudits = getStoredAudits(null);
         const otherUserAudits = globalAudits.filter(audit => audit.ownerId !== user.email);
         const updatedGlobalAudits = [...otherUserAudits, ...userSampleAudits];
-        console.log(`Saving ${updatedGlobalAudits.length} audits to global storage (initialization)`);
+        console.log(`[useAuditManager] Saving ${updatedGlobalAudits.length} audits to global storage (initialization)`);
         saveAuditsToStorage(null, updatedGlobalAudits);
         
         return userSampleAudits;
       }
       
-      return storedAudits;
+      return userAudits;
     } catch (error) {
-      console.error("Error initializing audits:", error);
+      console.error("[useAuditManager] Error initializing audits:", error);
       toast.error("שגיאה בטעינת נתונים");
       return initialAudits;
     }
   });
+  
+  // Re-sync when user changes
+  useEffect(() => {
+    if (!user) return;
+    
+    console.log(`[useAuditManager] User changed, resyncing data for: ${user.email}`);
+    
+    try {
+      // For managers, we always load from global storage
+      if (user.role === "מנהלת") {
+        const allAudits = getStoredAudits(null);
+        console.log(`[useAuditManager] Resynced ${allAudits.length} audits from global storage for manager`);
+        setAudits(allAudits);
+        return;
+      }
+      
+      if (!user.email) return;
+      
+      // For regular users, load their specific audits
+      const userAudits = getStoredAudits(user.email);
+      
+      // If no user-specific audits, try global storage
+      if (userAudits.length === 0) {
+        const globalAudits = getStoredAudits(null);
+        const globalUserAudits = globalAudits.filter(audit => audit.ownerId === user.email);
+        
+        // If found in global storage, sync to user-specific storage
+        if (globalUserAudits.length > 0) {
+          saveAuditsToStorage(user.email, globalUserAudits);
+          console.log(`[useAuditManager] Resynced ${globalUserAudits.length} audits from global to user-specific storage`);
+          setAudits(globalUserAudits);
+          return;
+        }
+      }
+      
+      console.log(`[useAuditManager] Resynced ${userAudits.length} user-specific audits`);
+      setAudits(userAudits);
+    } catch (error) {
+      console.error("[useAuditManager] Error resyncing audits:", error);
+    }
+  }, [user]);
   
   const [currentAudit, setCurrentAudit] = useState<Audit | null>(null);
   const [newlyCreatedAudit, setNewlyCreatedAudit] = useState<Audit | null>(null);
@@ -123,6 +181,7 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
   const handleAuditSubmit = (auditData: Partial<Audit>, canEdit: (auditOwnerId: string) => boolean) => {
     if (formMode === "create" && user) {
       const { newAudits, newAudit } = createAudit(auditData, audits, user);
+      console.log(`[useAuditManager] Created new audit: ${newAudit.id}, updating state with ${newAudits.length} audits`);
       setAudits(newAudits);
       return newAudit;
     } else if (formMode === "edit" && currentAudit) {
