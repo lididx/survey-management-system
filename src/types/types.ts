@@ -13,10 +13,12 @@ export type ContactGender = "male" | "female";
 export interface Contact {
   id?: string;
   fullName: string;
+  firstName?: string; // Added for first name
+  lastName?: string;  // Added for last name
   role: string;
   email: string;
   phone: string;
-  gender: ContactGender; // New field for contact gender
+  gender: ContactGender;
 }
 
 export interface StatusChange {
@@ -34,14 +36,14 @@ export interface Audit {
   id: string;
   name: string;
   description: string;
-  clientName: string; // Added field for client name
+  clientName: string;
   contacts: Contact[];
   receivedDate: Date;
   plannedMeetingDate: Date | null;
   currentStatus: StatusType;
   statusLog: StatusChange[];
   ownerId: string;
-  ownerName?: string; // Add owner name to display who created the audit
+  ownerName?: string;
 }
 
 export type UserRole = "בודק" | "מנהלת";

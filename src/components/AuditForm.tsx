@@ -160,12 +160,12 @@ export const AuditForm = ({ audit, onSubmit, onCancel, mode, currentUser }: Audi
         />
         
         <div className="space-y-2">
-          <Label htmlFor="description">תיאור</Label>
+          <Label htmlFor="description">תיאור מערכת</Label>
           <Textarea
             id="description"
             value={formData.description}
             onChange={(e) => handleInputChange("description", e.target.value)}
-            placeholder="הזן תיאור קצר"
+            placeholder="הזן תיאור קצר של המערכת"
             rows={3}
           />
         </div>

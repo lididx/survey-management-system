@@ -24,8 +24,14 @@ export const EmailTemplatePopup = ({
   useEffect(() => {
     if (!audit) return;
     
+    // Get the current user details
+    const userData = localStorage.getItem("user");
+    const currentUser = userData ? JSON.parse(userData) : {};
+    const surveyorName = currentUser.name || "";
+    const surveyorGender = currentUser.name === "מורן" ? "female" : "male";
+    
     // Set email subject - new format as requested
-    setEmailSubject(`תיאום סקר ${audit.clientName || audit.name}`);
+    setEmailSubject(`קביעת סקר אפליקציה למערכת ${audit.name} - ${audit.clientName}`);
     
     // Set email body based on contact gender and count
     if (audit.contacts && audit.contacts.length > 0) {
@@ -36,55 +42,59 @@ export const EmailTemplatePopup = ({
       const females = contacts.filter(c => c.gender === "female");
       
       let greeting = "";
-      if (contacts.length === 1) {
-        // Single contact
-        const contact = contacts[0];
-        greeting = `היי ${contact.fullName}`;
-        
-        // Pronouns will be used later in the text based on gender
-      } else {
-        // Multiple contacts
-        if (males.length > 0 && females.length > 0) {
-          // Mixed gender
-          greeting = `היי ${males[0].fullName} וכן ${females[0].fullName}`;
-          if (contacts.length > 2) {
-            greeting += " ושאר אנשי הקשר";
-          }
-        } else if (males.length > 0) {
-          // All males
-          greeting = `היי ${males[0].fullName}`;
-          if (males.length > 1) {
-            greeting += ` וכן ${males.length > 2 ? "שאר אנשי הקשר" : males[1].fullName}`;
-          }
-        } else {
-          // All females
-          greeting = `היי ${females[0].fullName}`;
-          if (females.length > 1) {
-            greeting += ` וכן ${females.length > 2 ? "שאר אנשות הקשר" : females[1].fullName}`;
-          }
-        }
-      }
-      
-      // Determine second person pronouns for the email
       let secondPersonPronoun = "אתה";
       let secondPersonPlural = "אתם";
       let invitationText = "מוזמן";
+      let thinkText = "חושב";
+      let sendText = "תשלח";
+      let availableText = "זמין";
       
-      if (contacts.length === 1 && contacts[0].gender === "female") {
-        secondPersonPronoun = "את";
-        invitationText = "מוזמנת";
-      } else if (contacts.length > 1) {
+      if (contacts.length === 1) {
+        // Single contact - get first name only
+        const contact = contacts[0];
+        const firstName = contact.firstName || contact.fullName.split(' ')[0];
+        greeting = `היי ${firstName}`;
+        
+        if (contact.gender === "female") {
+          secondPersonPronoun = "את";
+          invitationText = "מוזמנת";
+          thinkText = "חושבת";
+          sendText = "תשלחי";
+          availableText = "זמינה";
+        }
+      } else {
+        // Multiple contacts
+        const firstNames = contacts.map(c => {
+          return c.firstName || c.fullName.split(' ')[0];
+        });
+        
+        if (contacts.length === 2) {
+          greeting = `היי ${firstNames.join(' ו')}`;
+        } else {
+          greeting = `היי ${firstNames[0]}, ${firstNames[1]} ושאר אנשי הקשר`;
+        }
+        
+        // Plurals
         if (females.length > 0 && males.length === 0) {
           secondPersonPlural = "אתן";
           invitationText = "מוזמנות";
+          thinkText = "חושבות";
+          sendText = "תשלחו";
+          availableText = "זמינות";
         } else {
           invitationText = "מוזמנים";
+          thinkText = "חושבים";
+          sendText = "תשלחו";
+          availableText = "זמינים";
         }
       }
       
+      // Determine surveyor text (male/female)
+      const surveyorText = surveyorGender === "female" ? "סוקרת" : "סוקר";
+      
       setEmailBody(`${greeting},
-שמי לידור, סוקר אפליקציה מטעם חברת Citadel העובדת עם חברת ${audit.clientName || audit.name}.
-קיבלתי את המייל של${contacts.length > 1 ? "כם" : "ך"} על מנת לתאם ${contacts.length > 1 ? "מולכם" : "מולך"} סקר אפליקציה למערכת ${audit.clientName || audit.name}.
+שמי ${surveyorName}, ${surveyorText} אפליקציה מטעם חברת Citadel העובדת עם חברת ${audit.clientName}.
+קיבלתי את המייל של${contacts.length > 1 ? "כם" : "ך"} על מנת לתאם ${contacts.length > 1 ? "מולכם" : "מולך"} סקר אפליקציה למערכת ${audit.name}.
 
 להלן הנושאים עליהם נעבור במהלך סקר האפליקציה על המערכת:
  • תיאור המערכת (מידע כללי על המערכת הכולל גם גרסאות שפות תכנות)
@@ -101,8 +111,8 @@ export const EmailTemplatePopup = ({
 כמה דגשים:
 1. הסקר הינו סקר תשאולי בלבד.
 2. במהלך הפגישה אצטרך לקחת תצלומי מסך מתוך המערכת לכן יש צורך בגישה מלאה למערכת ושרתיה בזמן הפגישה.
-3. במידה ו${contacts.length > 1 ? secondPersonPlural : secondPersonPronoun} חושב${contacts.length > 1 ? "ים" : ""} שיש גורמים נוספים שיכולים לעזור במהלך הפגישה ${contacts.length > 1 ? "אתם" : "אתה"} ${invitationText} להוסיף אותם להתכתבות.
-4. אשמח ש${contacts.length > 1 ? "תשלחו" : "תשלח"} לי מספר תאריכים בהם ${contacts.length > 1 ? "אתם זמינים" : `${secondPersonPronoun} זמינ${contacts[0].gender === "female" ? "ה" : ""}`} לביצוע הפגישה.
+3. במידה ו${contacts.length > 1 ? secondPersonPlural : secondPersonPronoun} ${thinkText} שיש גורמים נוספים שיכולים לעזור במהלך הפגישה ${contacts.length > 1 ? "אתם" : "אתה"} ${invitationText} להוסיף אותם להתכתבות.
+4. אשמח ש${sendText} לי מספר תאריכים בהם ${contacts.length > 1 ? `${secondPersonPlural} ${availableText}` : `${secondPersonPronoun} ${availableText}`} לביצוע הפגישה.
 תודה רבה!`);
     }
   }, [audit]);
@@ -110,7 +120,7 @@ export const EmailTemplatePopup = ({
   // Copy email content to clipboard
   const handleCopySubject = () => {
     navigator.clipboard.writeText(emailSubject);
-    toast.success("נושא המייל הועתק ללוח");
+    toast.success("כותרת המייל הועתקה ללוח");
   };
 
   const handleCopyBody = () => {
@@ -133,10 +143,10 @@ export const EmailTemplatePopup = ({
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <div className="flex justify-between items-center">
-              <h3 className="font-semibold">נושא המייל:</h3>
+              <h3 className="font-semibold">כותרת המייל:</h3>
               <Button variant="outline" size="sm" onClick={handleCopySubject} className="flex items-center gap-2">
                 <Copy className="h-4 w-4" />
-                העתק נושא
+                העתק כותרת
               </Button>
             </div>
             <div className="bg-slate-50 p-3 rounded-md border">

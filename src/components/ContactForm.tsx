@@ -16,7 +16,8 @@ interface ContactFormProps {
 export const ContactForm = ({ contacts, setContacts }: ContactFormProps) => {
   const [newContact, setNewContact] = useState<Contact>({
     id: crypto.randomUUID(),
-    fullName: "",
+    firstName: "", // Changed from fullName to firstName
+    lastName: "", // Added lastName
     role: "",
     email: "",
     phone: "",
@@ -24,20 +25,26 @@ export const ContactForm = ({ contacts, setContacts }: ContactFormProps) => {
   });
   
   const [errors, setErrors] = useState<{
-    fullName?: string;
+    firstName?: string;
+    lastName?: string;
     email?: string;
     phone?: string;
   }>({});
 
   const validateContact = () => {
     const newErrors: {
-      fullName?: string;
+      firstName?: string;
+      lastName?: string;
       email?: string;
       phone?: string;
     } = {};
     
-    if (!newContact.fullName.trim()) {
-      newErrors.fullName = "שם מלא הוא שדה חובה";
+    if (!newContact.firstName.trim()) {
+      newErrors.firstName = "שם פרטי הוא שדה חובה";
+    }
+    
+    if (!newContact.lastName.trim()) {
+      newErrors.lastName = "שם משפחה הוא שדה חובה";
     }
     
     if (!newContact.email.trim()) {
@@ -55,10 +62,17 @@ export const ContactForm = ({ contacts, setContacts }: ContactFormProps) => {
       return;
     }
     
-    setContacts([...contacts, newContact]);
+    // Combine first and last name for fullName to maintain compatibility
+    const fullContact = {
+      ...newContact,
+      fullName: `${newContact.firstName} ${newContact.lastName}`
+    };
+    
+    setContacts([...contacts, fullContact]);
     setNewContact({
       id: crypto.randomUUID(),
-      fullName: "",
+      firstName: "",
+      lastName: "",
       role: "",
       email: "",
       phone: "",
@@ -74,6 +88,15 @@ export const ContactForm = ({ contacts, setContacts }: ContactFormProps) => {
     toast.success("איש קשר הוסר בהצלחה");
   };
 
+  // Extract first and last name for display
+  const getNameParts = (fullName: string) => {
+    const parts = fullName.split(' ');
+    return {
+      firstName: parts[0] || '',
+      lastName: parts.slice(1).join(' ') || ''
+    };
+  };
+
   return (
     <div className="space-y-4">
       <div className="rounded-md border p-4">
@@ -81,44 +104,65 @@ export const ContactForm = ({ contacts, setContacts }: ContactFormProps) => {
         
         {contacts.length > 0 && (
           <div className="space-y-3 mb-4">
-            {contacts.map((contact) => (
-              <div 
-                key={contact.id} 
-                className="flex items-center justify-between rounded-lg bg-gray-50 p-2"
-              >
-                <div>
-                  <p className="font-semibold">{contact.fullName}</p>
-                  <p className="text-sm text-gray-600">{contact.role}</p>
-                  <p className="text-sm">{contact.email} | {contact.phone}</p>
-                  <p className="text-xs text-gray-500">מגדר: {contact.gender === "male" ? "זכר" : "נקבה"}</p>
-                </div>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => handleRemoveContact(contact.id)}
+            {contacts.map((contact) => {
+              const { firstName, lastName } = contact.firstName 
+                ? { firstName: contact.firstName, lastName: contact.lastName } 
+                : getNameParts(contact.fullName);
+              
+              return (
+                <div 
+                  key={contact.id} 
+                  className="flex items-center justify-between rounded-lg bg-gray-50 p-2"
                 >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
+                  <div>
+                    <p className="font-semibold">{firstName} {lastName}</p>
+                    <p className="text-sm text-gray-600">{contact.role}</p>
+                    <p className="text-sm">{contact.email} | {contact.phone}</p>
+                    <p className="text-xs text-gray-500">מגדר: {contact.gender === "male" ? "זכר" : "נקבה"}</p>
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => handleRemoveContact(contact.id)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              );
+            })}
           </div>
         )}
 
         <div className="grid grid-cols-1 gap-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label htmlFor="fullName">שם מלא *</Label>
+              <Label htmlFor="firstName">שם פרטי *</Label>
               <Input
-                id="fullName"
-                value={newContact.fullName}
-                onChange={(e) => setNewContact({...newContact, fullName: e.target.value})}
-                placeholder="שם מלא"
-                className={errors.fullName ? "border-red-500" : ""}
+                id="firstName"
+                value={newContact.firstName}
+                onChange={(e) => setNewContact({...newContact, firstName: e.target.value})}
+                placeholder="שם פרטי"
+                className={errors.firstName ? "border-red-500" : ""}
               />
-              {errors.fullName && (
-                <p className="text-xs text-red-500">{errors.fullName}</p>
+              {errors.firstName && (
+                <p className="text-xs text-red-500">{errors.firstName}</p>
               )}
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="lastName">שם משפחה *</Label>
+              <Input
+                id="lastName"
+                value={newContact.lastName}
+                onChange={(e) => setNewContact({...newContact, lastName: e.target.value})}
+                placeholder="שם משפחה"
+                className={errors.lastName ? "border-red-500" : ""}
+              />
+              {errors.lastName && (
+                <p className="text-xs text-red-500">{errors.lastName}</p>
+              )}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label htmlFor="role">תפקיד</Label>
               <Input
@@ -128,8 +172,6 @@ export const ContactForm = ({ contacts, setContacts }: ContactFormProps) => {
                 placeholder="תפקיד"
               />
             </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label htmlFor="email">אימייל *</Label>
               <Input
@@ -144,6 +186,8 @@ export const ContactForm = ({ contacts, setContacts }: ContactFormProps) => {
                 <p className="text-xs text-red-500">{errors.email}</p>
               )}
             </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label htmlFor="phone">טלפון</Label>
               <Input
@@ -153,23 +197,23 @@ export const ContactForm = ({ contacts, setContacts }: ContactFormProps) => {
                 placeholder="טלפון"
               />
             </div>
-          </div>
-          <div className="space-y-2">
-            <Label>מגדר *</Label>
-            <RadioGroup
-              value={newContact.gender}
-              onValueChange={(value) => setNewContact({...newContact, gender: value as ContactGender})}
-              className="flex space-x-4 space-x-reverse"
-            >
-              <div className="flex items-center space-x-2 space-x-reverse">
-                <RadioGroupItem value="male" id="male" />
-                <Label htmlFor="male">זכר</Label>
-              </div>
-              <div className="flex items-center space-x-2 space-x-reverse">
-                <RadioGroupItem value="female" id="female" />
-                <Label htmlFor="female">נקבה</Label>
-              </div>
-            </RadioGroup>
+            <div className="space-y-2">
+              <Label>מגדר *</Label>
+              <RadioGroup
+                value={newContact.gender}
+                onValueChange={(value) => setNewContact({...newContact, gender: value as ContactGender})}
+                className="flex justify-end space-x-4 space-x-reverse"
+              >
+                <div className="flex items-center space-x-2 space-x-reverse">
+                  <RadioGroupItem value="male" id="male" />
+                  <Label htmlFor="male">זכר</Label>
+                </div>
+                <div className="flex items-center space-x-2 space-x-reverse">
+                  <RadioGroupItem value="female" id="female" />
+                  <Label htmlFor="female">נקבה</Label>
+                </div>
+              </RadioGroup>
+            </div>
           </div>
           <Button 
             type="button" 

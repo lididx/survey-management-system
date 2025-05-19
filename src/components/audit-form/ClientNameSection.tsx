@@ -9,18 +9,20 @@ interface ClientNameSectionProps {
   onClientNameChange: (name: string) => void;
 }
 
-// Sample client names for dropdown
+// Updated client names list
 const clientNames = [
-  "SAP",
-  "Oracle",
-  "Microsoft",
-  "IBM",
-  "Google",
-  "Apple",
-  "Amazon",
-  "Facebook",
-  "Intel",
-  "Nvidia",
+  "הראל",
+  "מנורה",
+  "בנק הפועלים",
+  "בנק לאומי",
+  "מכבי",
+  "מרכנתיל",
+  "מגדל",
+  "הפניקס",
+  "מת\"ף",
+  "בנק ירושלים",
+  "בנק ישראל",
+  "הכשרה",
   "אחר"
 ];
 
