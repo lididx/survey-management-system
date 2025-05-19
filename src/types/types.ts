@@ -1,3 +1,4 @@
+
 export type StatusType = 
   | "התקבל"
   | "נשלח מייל תיאום למנהל מערכת"
@@ -7,12 +8,15 @@ export type StatusType =
   | "בבקרה"
   | "הסתיים";
 
+export type ContactGender = "male" | "female";
+
 export interface Contact {
   id?: string;
   fullName: string;
   role: string;
   email: string;
   phone: string;
+  gender: ContactGender; // New field for contact gender
 }
 
 export interface StatusChange {
@@ -23,13 +27,14 @@ export interface StatusChange {
   oldDate: Date | null;
   newDate: Date | null;
   reason: string;
-  modifiedBy: string; // Added field to track who made the change
+  modifiedBy: string;
 }
 
 export interface Audit {
   id: string;
   name: string;
   description: string;
+  clientName: string; // Added field for client name
   contacts: Contact[];
   receivedDate: Date;
   plannedMeetingDate: Date | null;

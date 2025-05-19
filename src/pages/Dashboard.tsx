@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -12,10 +13,9 @@ import {
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 
-import { Audit } from "@/types/types";
+import { Audit, StatusType } from "@/types/types";
 import { AuditForm } from "@/components/AuditForm";
 import { EmailTemplatePopup } from "@/components/EmailTemplatePopup";
-import { RecipientCountInput } from "@/components/RecipientCountInput";
 import { StatusCards } from "@/components/dashboard/StatusCards";
 import { AuditsTable } from "@/components/dashboard/AuditsTable";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
@@ -30,8 +30,6 @@ const Dashboard = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isEditSheetOpen, setIsEditSheetOpen] = useState(false);
   const [showEmailTemplate, setShowEmailTemplate] = useState(false);
-  const [showRecipientInput, setShowRecipientInput] = useState(false);
-  const [recipientCount, setRecipientCount] = useState<number>(1);
   const [searchQuery, setSearchQuery] = useState("");
   
   const { 
@@ -46,19 +44,21 @@ const Dashboard = () => {
     handleCreateAudit,
     handleEditAudit,
     handleDeleteAudit,
+    handleStatusChange,
     handleAuditSubmit
-  } = useAuditManager(sampleAudits, user); // Use sampleAudits from imported utility
+  } = useAuditManager(sampleAudits, user);
   
   const { canDelete, canEdit } = useAuditPermissions(user);
   
   // Monitor stale audits
-  useStaleAudits(audits); // Use audits from useAuditManager
+  useStaleAudits(audits);
   
   // Filter audits based on search query
   const displayedAudits = searchQuery
     ? filteredAudits.filter(audit => 
         audit.name.includes(searchQuery) || 
-        audit.currentStatus.includes(searchQuery)
+        audit.currentStatus.includes(searchQuery) ||
+        (audit.clientName && audit.clientName.includes(searchQuery))
       )
     : filteredAudits;
 
@@ -69,7 +69,7 @@ const Dashboard = () => {
       setIsFormOpen(false);
       if (result) {
         setNewlyCreatedAudit(result);
-        setShowRecipientInput(true);
+        setShowEmailTemplate(true);
       }
     } else if (formMode === "edit") {
       setIsEditSheetOpen(false);
@@ -78,12 +78,6 @@ const Dashboard = () => {
 
   const handleEmailClick = (audit: Audit) => {
     setNewlyCreatedAudit(audit);
-    setShowRecipientInput(true);
-  };
-
-  const handleRecipientCountSubmitted = (count: number) => {
-    setRecipientCount(count);
-    setShowRecipientInput(false);
     setShowEmailTemplate(true);
   };
 
@@ -102,7 +96,7 @@ const Dashboard = () => {
               <Search className="absolute right-3 top-2.5 h-4 w-4 text-gray-500" />
               <Input
                 type="text"
-                placeholder="חיפוש לפי שם או סטטוס..."
+                placeholder="חיפוש לפי שם, לקוח או סטטוס..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pr-10 w-[250px]"
@@ -125,7 +119,7 @@ const Dashboard = () => {
         </div>
         
         <StatusCards 
-          audits={audits} // Use audits from useAuditManager
+          audits={audits}
           userRole={user.role} 
           userEmail={user.email}
         />
@@ -146,6 +140,7 @@ const Dashboard = () => {
               }}
               onDeleteAudit={(id) => handleDeleteAudit(id, canDelete)}
               onEmailClick={handleEmailClick}
+              onStatusChange={handleStatusChange}
             />
           </CardContent>
         </Card>
@@ -184,21 +179,10 @@ const Dashboard = () => {
         </SheetContent>
       </Sheet>
 
-      {/* חלון הזנת מספר נמענים */}
-      {newlyCreatedAudit && (
-        <RecipientCountInput
-          audit={newlyCreatedAudit}
-          open={showRecipientInput}
-          onCancel={() => setShowRecipientInput(false)}
-          onConfirm={handleRecipientCountSubmitted}
-        />
-      )}
-
       {/* חלון תבנית מייל */}
       {newlyCreatedAudit && (
         <EmailTemplatePopup
           audit={newlyCreatedAudit}
-          recipientCount={recipientCount}
           open={showEmailTemplate}
           onClose={() => {
             setShowEmailTemplate(false);

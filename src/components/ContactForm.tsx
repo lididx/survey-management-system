@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PlusCircle, X } from "lucide-react";
-import { Contact } from "@/types/types";
+import { Contact, ContactGender } from "@/types/types";
 import { toast } from "sonner";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 interface ContactFormProps {
   contacts: Contact[];
@@ -18,7 +19,8 @@ export const ContactForm = ({ contacts, setContacts }: ContactFormProps) => {
     fullName: "",
     role: "",
     email: "",
-    phone: ""
+    phone: "",
+    gender: "male" // Default gender
   });
   
   const [errors, setErrors] = useState<{
@@ -59,7 +61,8 @@ export const ContactForm = ({ contacts, setContacts }: ContactFormProps) => {
       fullName: "",
       role: "",
       email: "",
-      phone: ""
+      phone: "",
+      gender: "male"
     });
     setErrors({});
     toast.success("איש קשר נוסף בהצלחה");
@@ -87,6 +90,7 @@ export const ContactForm = ({ contacts, setContacts }: ContactFormProps) => {
                   <p className="font-semibold">{contact.fullName}</p>
                   <p className="text-sm text-gray-600">{contact.role}</p>
                   <p className="text-sm">{contact.email} | {contact.phone}</p>
+                  <p className="text-xs text-gray-500">מגדר: {contact.gender === "male" ? "זכר" : "נקבה"}</p>
                 </div>
                 <Button 
                   variant="ghost" 
@@ -149,6 +153,23 @@ export const ContactForm = ({ contacts, setContacts }: ContactFormProps) => {
                 placeholder="טלפון"
               />
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label>מגדר *</Label>
+            <RadioGroup
+              value={newContact.gender}
+              onValueChange={(value) => setNewContact({...newContact, gender: value as ContactGender})}
+              className="flex space-x-4 space-x-reverse"
+            >
+              <div className="flex items-center space-x-2 space-x-reverse">
+                <RadioGroupItem value="male" id="male" />
+                <Label htmlFor="male">זכר</Label>
+              </div>
+              <div className="flex items-center space-x-2 space-x-reverse">
+                <RadioGroupItem value="female" id="female" />
+                <Label htmlFor="female">נקבה</Label>
+              </div>
+            </RadioGroup>
           </div>
           <Button 
             type="button" 

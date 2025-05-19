@@ -1,17 +1,31 @@
 
 import { useState, useEffect } from 'react';
-import { Audit, User } from '@/types/types';
+import { Audit, User, StatusType } from '@/types/types';
 import { getStoredAudits, sampleAudits, saveAuditsToStorage } from '@/utils/auditStorage';
-import { createAudit, editAudit, deleteAudit } from '@/utils/auditOperations';
+import { createAudit, editAudit, deleteAudit, updateAuditStatus } from '@/utils/auditOperations';
 import { sendNotificationEmail } from '@/utils/notificationUtils';
 
 export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
-  // Initialize audits from localStorage or use sample data for new users
+  // Initialize audits from localStorage based on user
   const [audits, setAudits] = useState<Audit[]>(() => {
     if (!user?.email) return initialAudits;
     
     const storedAudits = getStoredAudits(user.email);
-    return storedAudits.length > 0 ? storedAudits : initialAudits;
+    
+    // For first time users, seed with sample data
+    if (storedAudits.length === 0 && user.role === "בודק") {
+      // Update the sample audits to have the current user as owner
+      const userSampleAudits = sampleAudits.map(audit => ({
+        ...audit,
+        ownerId: user.email
+      }));
+      
+      // Save these to localStorage
+      saveAuditsToStorage(user.email, userSampleAudits);
+      return userSampleAudits;
+    }
+    
+    return storedAudits;
   });
   
   const [currentAudit, setCurrentAudit] = useState<Audit | null>(null);
@@ -44,6 +58,21 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
     const updatedAudits = deleteAudit(id, audits, user, canDelete);
     setAudits(updatedAudits);
   };
+  
+  const handleStatusChange = (audit: Audit, newStatus: StatusType) => {
+    const canEdit = (auditOwnerId: string) => {
+      if (!user) return false;
+      
+      // Managers can edit any record
+      if (user.role === "מנהלת") return true;
+      
+      // Regular users can only edit their own records
+      return user.role === "בודק" && auditOwnerId === user.email;
+    };
+    
+    const updatedAudits = updateAuditStatus(audit.id, newStatus, audits, user, canEdit);
+    setAudits(updatedAudits);
+  };
 
   const handleAuditSubmit = (auditData: Partial<Audit>, canEdit: (auditOwnerId: string) => boolean) => {
     if (formMode === "create" && user) {
@@ -70,6 +99,7 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
     handleCreateAudit,
     handleEditAudit,
     handleDeleteAudit,
+    handleStatusChange,
     handleAuditSubmit,
     sendNotificationEmail
   };

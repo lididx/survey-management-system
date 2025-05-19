@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +14,7 @@ interface AuditFormProps {
   onSubmit: (audit: Partial<Audit>) => void;
   onCancel: () => void;
   mode: "create" | "edit";
-  currentUser: User | null; // Added current user prop
+  currentUser: User | null;
 }
 
 const statusOptions: StatusType[] = [
@@ -26,10 +27,26 @@ const statusOptions: StatusType[] = [
   "הסתיים"
 ];
 
+// Sample client names for dropdown
+const clientNames = [
+  "SAP",
+  "Oracle",
+  "Microsoft",
+  "IBM",
+  "Google",
+  "Apple",
+  "Amazon",
+  "Facebook",
+  "Intel",
+  "Nvidia",
+  "אחר"
+];
+
 export const AuditForm = ({ audit, onSubmit, onCancel, mode, currentUser }: AuditFormProps) => {
   const [formData, setFormData] = useState<Partial<Audit>>({
     name: "",
     description: "",
+    clientName: "",
     contacts: [],
     receivedDate: new Date(),
     plannedMeetingDate: null,
@@ -42,6 +59,7 @@ export const AuditForm = ({ audit, onSubmit, onCancel, mode, currentUser }: Audi
   const [dateReason, setDateReason] = useState("");
   const [initialStatus, setInitialStatus] = useState<StatusType | null>(null);
   const [initialDate, setInitialDate] = useState<Date | null>(null);
+  const [customClientName, setCustomClientName] = useState("");
 
   useEffect(() => {
     if (audit && mode === "edit") {
@@ -50,6 +68,9 @@ export const AuditForm = ({ audit, onSubmit, onCancel, mode, currentUser }: Audi
       });
       setInitialStatus(audit.currentStatus);
       setInitialDate(audit.plannedMeetingDate);
+      if (audit.clientName && !clientNames.includes(audit.clientName)) {
+        setCustomClientName(audit.clientName);
+      }
     }
   }, [audit, mode]);
 
@@ -59,6 +80,11 @@ export const AuditForm = ({ audit, onSubmit, onCancel, mode, currentUser }: Audi
     // Validate form
     if (!formData.name) {
       toast.error("יש להזין שם סקר");
+      return;
+    }
+    
+    if (!formData.clientName) {
+      toast.error("יש להזין שם לקוח");
       return;
     }
     
@@ -73,13 +99,8 @@ export const AuditForm = ({ audit, onSubmit, onCancel, mode, currentUser }: Audi
     }
     
     if (mode === "edit") {
-      // Check if status was changed
+      // Check if status was changed - now reason is optional
       if (initialStatus !== formData.currentStatus) {
-        if (!statusReason) {
-          toast.error("יש להזין סיבה לשינוי סטטוס");
-          return;
-        }
-        
         // Add status change log with user who made the change
         const statusChange: StatusChange = {
           id: crypto.randomUUID(),
@@ -88,14 +109,14 @@ export const AuditForm = ({ audit, onSubmit, onCancel, mode, currentUser }: Audi
           newStatus: formData.currentStatus as StatusType,
           oldDate: null,
           newDate: null,
-          reason: statusReason,
-          modifiedBy: currentUser.name // Add user name who modified the status
+          reason: statusReason || "עדכון סטטוס", // Default reason if empty
+          modifiedBy: currentUser.name
         };
         
         formData.statusLog = [...(formData.statusLog || []), statusChange];
       }
       
-      // Check if date was changed
+      // Check if date was changed - now reason is optional
       if (
         (initialDate !== null && formData.plannedMeetingDate === null) || 
         (initialDate === null && formData.plannedMeetingDate !== null) ||
@@ -104,11 +125,6 @@ export const AuditForm = ({ audit, onSubmit, onCancel, mode, currentUser }: Audi
             formData.plannedMeetingDate.getTime() : 
             new Date(formData.plannedMeetingDate).getTime()))
       ) {
-        if (!dateReason) {
-          toast.error("יש להזין סיבה לשינוי תאריך");
-          return;
-        }
-        
         // Add date change log with user who made the change
         const dateChange: StatusChange = {
           id: crypto.randomUUID(),
@@ -117,8 +133,8 @@ export const AuditForm = ({ audit, onSubmit, onCancel, mode, currentUser }: Audi
           newStatus: null as any,
           oldDate: initialDate,
           newDate: formData.plannedMeetingDate,
-          reason: dateReason,
-          modifiedBy: currentUser.name // Add user name who modified the date
+          reason: dateReason || "עדכון תאריך", // Default reason if empty
+          modifiedBy: currentUser.name
         };
         
         formData.statusLog = [...(formData.statusLog || []), dateChange];
@@ -137,7 +153,7 @@ export const AuditForm = ({ audit, onSubmit, onCancel, mode, currentUser }: Audi
         oldDate: null,
         newDate: null,
         reason: "יצירת סקר",
-        modifiedBy: currentUser.name // Add user name for initial creation
+        modifiedBy: currentUser.name
       }];
     }
     
@@ -158,6 +174,15 @@ export const AuditForm = ({ audit, onSubmit, onCancel, mode, currentUser }: Audi
     });
   };
 
+  const handleClientNameChange = (value: string) => {
+    if (value === "אחר") {
+      setCustomClientName("");
+      return;
+    }
+    
+    handleInputChange("clientName", value);
+  };
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6" dir="rtl">
       <div className="space-y-4">
@@ -170,6 +195,35 @@ export const AuditForm = ({ audit, onSubmit, onCancel, mode, currentUser }: Audi
             placeholder="הזן את שם הסקר"
             required
           />
+        </div>
+        
+        <div className="space-y-2">
+          <Label htmlFor="clientName">שם לקוח *</Label>
+          <div className="grid grid-cols-1 gap-2">
+            <Select 
+              value={clientNames.includes(formData.clientName || "") ? formData.clientName : "אחר"}
+              onValueChange={handleClientNameChange}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="בחר שם לקוח" />
+              </SelectTrigger>
+              <SelectContent>
+                {clientNames.map(name => (
+                  <SelectItem key={name} value={name}>{name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {(formData.clientName === "אחר" || (!clientNames.includes(formData.clientName || "") && mode === "edit")) && (
+              <Input
+                placeholder="הזן שם לקוח מותאם אישית"
+                value={customClientName}
+                onChange={(e) => {
+                  setCustomClientName(e.target.value);
+                  handleInputChange("clientName", e.target.value);
+                }}
+              />
+            )}
+          </div>
         </div>
         
         <div className="space-y-2">
@@ -204,14 +258,13 @@ export const AuditForm = ({ audit, onSubmit, onCancel, mode, currentUser }: Audi
                 
                 {initialStatus !== formData.currentStatus && (
                   <div className="mt-2 space-y-2">
-                    <Label htmlFor="statusReason">סיבת שינוי סטטוס *</Label>
+                    <Label htmlFor="statusReason">סיבת שינוי סטטוס</Label>
                     <Textarea
                       id="statusReason"
                       value={statusReason}
                       onChange={(e) => setStatusReason(e.target.value)}
-                      placeholder="הסבר סיבת השינוי"
+                      placeholder="הסבר סיבת השינוי (לא חובה)"
                       rows={2}
-                      required
                     />
                   </div>
                 )}
@@ -236,14 +289,13 @@ export const AuditForm = ({ audit, onSubmit, onCancel, mode, currentUser }: Audi
                 {((initialDate !== formData.plannedMeetingDate) && 
                   (initialDate || formData.plannedMeetingDate)) && (
                   <div className="mt-2 space-y-2">
-                    <Label htmlFor="dateReason">סיבת שינוי תאריך *</Label>
+                    <Label htmlFor="dateReason">סיבת שינוי תאריך</Label>
                     <Textarea
                       id="dateReason"
                       value={dateReason}
                       onChange={(e) => setDateReason(e.target.value)}
-                      placeholder="הסבר סיבת השינוי"
+                      placeholder="הסבר סיבת השינוי (לא חובה)"
                       rows={2}
-                      required
                     />
                   </div>
                 )}

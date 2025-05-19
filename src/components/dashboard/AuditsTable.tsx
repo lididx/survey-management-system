@@ -19,12 +19,14 @@ import {
 } from "lucide-react";
 import { Audit, StatusType } from "@/types/types";
 import { StatusLogView } from "@/components/StatusLogView";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
+import { toast } from "sonner";
 
 interface AuditsTableProps {
   audits: Audit[];
@@ -34,7 +36,18 @@ interface AuditsTableProps {
   onEditAudit: (audit: Audit) => void;
   onDeleteAudit: (id: string) => void;
   onEmailClick: (audit: Audit) => void;
+  onStatusChange: (audit: Audit, newStatus: StatusType) => void;
 }
+
+const statusOptions: StatusType[] = [
+  "התקבל",
+  "נשלח מייל תיאום למנהל מערכת",
+  "נקבע",
+  "בכתיבה",
+  "שאלות השלמה מול מנהל מערכת",
+  "בבקרה",
+  "הסתיים"
+];
 
 export const AuditsTable = ({ 
   audits, 
@@ -43,7 +56,8 @@ export const AuditsTable = ({
   canDelete,
   onEditAudit, 
   onDeleteAudit,
-  onEmailClick
+  onEmailClick,
+  onStatusChange
 }: AuditsTableProps) => {
   const [expandedAuditId, setExpandedAuditId] = useState<string | null>(null);
 
@@ -60,7 +74,7 @@ export const AuditsTable = ({
     return new Date(date).toLocaleDateString("he-IL");
   };
   
-  const getStatusBadge = (status: StatusType) => {
+  const getStatusBadge = (status: StatusType, audit: Audit) => {
     let variant = "outline";
     
     switch (status) {
@@ -88,8 +102,49 @@ export const AuditsTable = ({
       default:
         variant = "outline";
     }
+
+    // Management users can only update to specific statuses
+    if (userRole === "מנהלת" && !canEdit(audit.ownerId)) {
+      return (
+        <Select 
+          value={status}
+          onValueChange={(value: StatusType) => {
+            if (value === "הסתיים" || value === "בבקרה") {
+              onStatusChange(audit, value);
+            } else {
+              toast.error("מנהלים יכולים לעדכן רק לסטטוס 'הסתיים' או 'בבקרה'");
+            }
+          }}
+          disabled={!canEdit(audit.ownerId) && userRole !== "מנהלת"}
+        >
+          <SelectTrigger className={`w-full px-2 py-1 h-auto bg-transparent border-0 hover:bg-gray-100 ${variant}`}>
+            <Badge variant={variant as any}>{status}</Badge>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="בבקרה">בבקרה</SelectItem>
+            <SelectItem value="הסתיים">הסתיים</SelectItem>
+          </SelectContent>
+        </Select>
+      );
+    }
     
-    return <Badge variant={variant as any}>{status}</Badge>;
+    // Regular users can update to any status if they have edit permissions
+    return (
+      <Select 
+        value={status}
+        onValueChange={(value: StatusType) => onStatusChange(audit, value)}
+        disabled={!canEdit(audit.ownerId)}
+      >
+        <SelectTrigger className="w-full px-2 py-1 h-auto bg-transparent border-0 hover:bg-gray-100">
+          <Badge variant={variant as any}>{status}</Badge>
+        </SelectTrigger>
+        <SelectContent>
+          {statusOptions.map(option => (
+            <SelectItem key={option} value={option}>{option}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    );
   };
 
   return (
@@ -99,10 +154,8 @@ export const AuditsTable = ({
           <TableRow className="bg-gray-50 text-gray-700">
             <TableHead className="p-4 font-medium">שם הסקר</TableHead>
             <TableHead className="p-4 font-medium">סטטוס</TableHead>
+            <TableHead className="p-4 font-medium">שם לקוח</TableHead>
             <TableHead className="p-4 font-medium">תאריך פגישה</TableHead>
-            <TableHead className="p-4 font-medium">אנשי קשר</TableHead>
-            <TableHead className="p-4 font-medium">תאריך קבלה</TableHead>
-            {userRole === "מנהלת" && <TableHead className="p-4 font-medium">בעלים</TableHead>}
             <TableHead className="p-4 font-medium">פעולות</TableHead>
           </TableRow>
         </TableHeader>
@@ -113,14 +166,12 @@ export const AuditsTable = ({
                 <TableRow className="hover:bg-gray-100 transition-colors">
                   <TableCell className="p-4 font-medium">{audit.name}</TableCell>
                   <TableCell className="p-4">
-                    {getStatusBadge(audit.currentStatus)}
+                    {getStatusBadge(audit.currentStatus, audit)}
                   </TableCell>
+                  <TableCell className="p-4">{audit.clientName || "לא צוין"}</TableCell>
                   <TableCell className="p-4">
                     {audit.plannedMeetingDate ? formatDate(audit.plannedMeetingDate) : "לא נקבע"}
                   </TableCell>
-                  <TableCell className="p-4">{audit.contacts?.length || 0}</TableCell>
-                  <TableCell className="p-4">{formatDate(audit.receivedDate)}</TableCell>
-                  {userRole === "מנהלת" && <TableCell className="p-4">{audit.ownerId.split('@')[0]}</TableCell>}
                   <TableCell className="p-4">
                     <div className="flex gap-2">
                       {canEdit(audit.ownerId) && (
@@ -159,7 +210,7 @@ export const AuditsTable = ({
                 </TableRow>
                 {expandedAuditId === audit.id && (
                   <TableRow>
-                    <TableCell colSpan={userRole === "מנהלת" ? 7 : 6} className="p-4 bg-gray-50">
+                    <TableCell colSpan={5} className="p-4 bg-gray-50">
                       <StatusLogView statusLog={audit.statusLog} />
                     </TableCell>
                   </TableRow>
@@ -168,7 +219,7 @@ export const AuditsTable = ({
             ))
           ) : (
             <TableRow>
-              <TableCell colSpan={userRole === "מנהלת" ? 7 : 6} className="text-center py-4">
+              <TableCell colSpan={5} className="text-center py-4">
                 לא נמצאו סקרים
               </TableCell>
             </TableRow>

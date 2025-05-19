@@ -8,8 +8,9 @@ export const sampleAudits: Audit[] = [
     id: "1",
     name: "סקר אבטחה מערכת CRM",
     description: "סקר אבטחת מידע למערכת CRM של החברה",
+    clientName: "SAP", // Added client name
     contacts: [
-      { id: "c1", fullName: "יוסי כהן", role: "מנהל מערכת", email: "yossi@example.com", phone: "050-1234567" }
+      { id: "c1", fullName: "יוסי כהן", role: "מנהל מערכת", email: "yossi@example.com", phone: "050-1234567", gender: "male" }
     ],
     receivedDate: new Date("2023-05-15"),
     plannedMeetingDate: new Date("2023-06-01"),
@@ -62,9 +63,10 @@ export const sampleAudits: Audit[] = [
     id: "2",
     name: "סקר אבטחה שרתי מידע",
     description: "סקר אבטחת מידע לשרתי המידע של החברה",
+    clientName: "Microsoft", // Added client name
     contacts: [
-      { id: "c2", fullName: "שרה לוי", role: "מנהלת תשתיות", email: "sarah@example.com", phone: "050-7654321" },
-      { id: "c3", fullName: "דוד ישראלי", role: "מנהל אבטחת מידע", email: "david@example.com", phone: "052-1234567" }
+      { id: "c2", fullName: "שרה לוי", role: "מנהלת תשתיות", email: "sarah@example.com", phone: "050-7654321", gender: "female" },
+      { id: "c3", fullName: "דוד ישראלי", role: "מנהל אבטחת מידע", email: "david@example.com", phone: "052-1234567", gender: "male" }
     ],
     receivedDate: new Date("2023-04-10"),
     plannedMeetingDate: null,
@@ -97,8 +99,9 @@ export const sampleAudits: Audit[] = [
     id: "3",
     name: "סקר תשתיות רשת",
     description: "סקר אבטחת מידע לתשתיות הרשת",
+    clientName: "Oracle", // Added client name
     contacts: [
-      { id: "c4", fullName: "רחל גולן", role: "מנהלת רשת", email: "rachel@example.com", phone: "054-9876543" }
+      { id: "c4", fullName: "רחל גולן", role: "מנהלת רשת", email: "rachel@example.com", phone: "054-9876543", gender: "female" }
     ],
     receivedDate: new Date("2023-06-01"),
     plannedMeetingDate: new Date("2023-06-15"),

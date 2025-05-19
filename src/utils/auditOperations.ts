@@ -1,5 +1,5 @@
 
-import { Audit, User } from '@/types/types';
+import { Audit, User, StatusType } from '@/types/types';
 import { toast } from 'sonner';
 import { saveAuditsToStorage } from './auditStorage';
 import { checkForStalledAudits, sendNotificationEmail } from './notificationUtils';
@@ -69,7 +69,7 @@ export const editAudit = (
       `סקר חדש לבקרה: ${updatedAudit.name}`,
       `שלום חן,
       
-הסקר "${updatedAudit.name}" עבר לסטטוס בקרה ומחכה לבדיקתך.
+הסקר "${updatedAudit.name}" עבור הלקוח "${updatedAudit.clientName}" עבר לסטטוס בקרה ומחכה לבדיקתך.
 
 לצפייה בפרטי הסקר, אנא היכנס/י למערכת.
 
@@ -85,6 +85,85 @@ export const editAudit = (
   checkForStalledAudits(updatedAudits);
   
   return { updatedAudits, updatedAudit };
+};
+
+export const updateAuditStatus = (
+  auditId: string,
+  newStatus: StatusType,
+  audits: Audit[],
+  user: User | null,
+  canEdit: (auditOwnerId: string) => boolean
+): Audit[] => {
+  const auditToUpdate = audits.find(audit => audit.id === auditId);
+  
+  if (!auditToUpdate) {
+    toast.error("הסקר לא נמצא");
+    return audits;
+  }
+  
+  // Special check for managers - they can only update to "בבקרה" or "הסתיים"
+  if (user?.role === "מנהלת" && !canEdit(auditToUpdate.ownerId) && 
+      newStatus !== "בבקרה" && newStatus !== "הסתיים") {
+    toast.error("מנהלים יכולים לעדכן רק לסטטוס 'הסתיים' או 'בבקרה'");
+    return audits;
+  }
+  
+  // If not manager or it's the user's own audit
+  if (user?.role !== "מנהלת" && !canEdit(auditToUpdate.ownerId)) {
+    toast.error("אין לך הרשאה לעדכן את הסקר הזה");
+    return audits;
+  }
+  
+  if (auditToUpdate.currentStatus === newStatus) {
+    return audits; // No change needed
+  }
+  
+  const statusChange = {
+    id: crypto.randomUUID(),
+    timestamp: new Date(),
+    oldStatus: auditToUpdate.currentStatus,
+    newStatus: newStatus,
+    oldDate: null,
+    newDate: null,
+    reason: "עדכון מהיר של סטטוס",
+    modifiedBy: user?.name || "מערכת"
+  };
+  
+  const updatedAudit = {
+    ...auditToUpdate,
+    currentStatus: newStatus,
+    statusLog: [...auditToUpdate.statusLog, statusChange]
+  };
+  
+  const updatedAudits = audits.map(audit => 
+    audit.id === auditId ? updatedAudit : audit
+  );
+  
+  if (user?.email) {
+    saveAuditsToStorage(user.email, updatedAudits);
+  }
+  
+  toast.success(`סטטוס הסקר עודכן ל-${newStatus}`);
+  
+  // Notify manager if status changed to "בבקרה"
+  if (newStatus === "בבקרה" && auditToUpdate.currentStatus !== "בבקרה") {
+    sendNotificationEmail(
+      "chen@example.com",
+      `סקר חדש לבקרה: ${auditToUpdate.name}`,
+      `שלום חן,
+      
+הסקר "${auditToUpdate.name}" עבור הלקוח "${auditToUpdate.clientName}" עבר לסטטוס בקרה ומחכה לבדיקתך.
+
+לצפייה בפרטי הסקר, אנא היכנס/י למערכת.
+
+בברכה,
+מערכת ניהול סקרי אבטחת מידע`
+    );
+    
+    toast.info("נשלחה התראה למנהלת על סקר לבקרה");
+  }
+  
+  return updatedAudits;
 };
 
 export const deleteAudit = (
