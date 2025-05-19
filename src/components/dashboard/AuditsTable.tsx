@@ -9,7 +9,6 @@ import {
   TableHead,
   TableCell
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { 
   Pencil, 
   ChevronDown, 
@@ -38,6 +37,7 @@ interface AuditsTableProps {
   onDeleteAudit: (id: string) => void;
   onEmailClick: (audit: Audit) => void;
   onStatusChange: (audit: Audit, newStatus: StatusType) => void;
+  isArchive?: boolean;
 }
 
 const statusOptions: StatusType[] = [
@@ -69,7 +69,8 @@ export const AuditsTable = ({
   onEditAudit, 
   onDeleteAudit,
   onEmailClick,
-  onStatusChange
+  onStatusChange,
+  isArchive = false
 }: AuditsTableProps) => {
   const [expandedAuditId, setExpandedAuditId] = useState<string | null>(null);
 
@@ -102,6 +103,27 @@ export const AuditsTable = ({
       alignItems: 'center',
       justifyContent: 'center'
     };
+
+    // In archive mode - special options for returning to active audits
+    if (isArchive) {
+      return (
+        <Select 
+          value={status}
+          onValueChange={(value: StatusType) => onStatusChange(audit, value)}
+          disabled={!canEdit(audit.ownerId)}
+        >
+          <SelectTrigger className="w-full px-2 py-1 h-auto bg-transparent border-0 hover:bg-gray-100">
+            <span style={customBadgeStyle}>{status}</span>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="בבקרה">בבקרה</SelectItem>
+            <SelectItem value="בכתיבה">בכתיבה</SelectItem>
+            <SelectItem value="התקבל">התקבל</SelectItem>
+            <SelectItem value="הסתיים">הסתיים</SelectItem>
+          </SelectContent>
+        </Select>
+      );
+    }
 
     // Management users can only update to specific statuses
     if (userRole === "מנהלת" && !canEdit(audit.ownerId)) {
@@ -181,18 +203,20 @@ export const AuditsTable = ({
                   </TableCell>
                   <TableCell className="p-4">
                     <div className="flex justify-center gap-2">
-                      {canEdit(audit.ownerId) && (
+                      {!isArchive && canEdit(audit.ownerId) && (
                         <Button variant="outline" size="sm" onClick={() => onEditAudit(audit)}>
                           <Pencil className="h-4 w-4" />
                         </Button>
                       )}
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => onEmailClick(audit)}
-                      >
-                        <Mail className="h-4 w-4" />
-                      </Button>
+                      {!isArchive && (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => onEmailClick(audit)}
+                        >
+                          <Mail className="h-4 w-4" />
+                        </Button>
+                      )}
                       <Button 
                         variant="outline" 
                         size="sm" 
@@ -227,7 +251,7 @@ export const AuditsTable = ({
           ) : (
             <TableRow>
               <TableCell colSpan={6} className="text-center py-4">
-                לא נמצאו סקרים
+                {isArchive ? "אין סקרים בארכיון" : "לא נמצאו סקרים"}
               </TableCell>
             </TableRow>
           )}

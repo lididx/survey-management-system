@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, Search } from "lucide-react";
+import { PlusCircle, Search, Archive } from "lucide-react";
 import { 
   Dialog, 
   DialogContent,
@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
+import { Link } from "react-router-dom";
 
 import { Audit, StatusType } from "@/types/types";
 import { AuditForm } from "@/components/AuditForm";
@@ -53,14 +54,19 @@ const Dashboard = () => {
   // Monitor stale audits
   useStaleAudits(audits);
   
+  // Filter audits - exclude completed audits
+  const activeAudits = filteredAudits.filter(
+    audit => audit.currentStatus !== "הסתיים"
+  );
+  
   // Filter audits based on search query
   const displayedAudits = searchQuery
-    ? filteredAudits.filter(audit => 
+    ? activeAudits.filter(audit => 
         audit.name.includes(searchQuery) || 
         audit.currentStatus.includes(searchQuery) ||
         (audit.clientName && audit.clientName.includes(searchQuery))
       )
-    : filteredAudits;
+    : activeAudits;
 
   const handleAuditFormSubmit = (auditData: Partial<Audit>) => {
     const result = handleAuditSubmit(auditData, canEdit);
@@ -102,6 +108,11 @@ const Dashboard = () => {
                 className="pr-10 w-[250px]"
               />
             </div>
+            
+            <Link to="/archive" className="flex items-center gap-2 text-gray-600 hover:text-gray-900">
+              <Archive className="h-4 w-4" />
+              ארכיון
+            </Link>
             
             {user.role === "בודק" && (
               <Button 

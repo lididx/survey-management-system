@@ -61,7 +61,7 @@ export const StatusCards = ({ audits, userRole, userEmail }: StatusCountsProps) 
       <Card style={{ borderTop: `4px solid ${statusColors.completed}` }}>
         <CardHeader className="pb-2">
           <CardTitle className="text-lg">סקרים שהושלמו</CardTitle>
-          <CardDescription>סקרים שהסתיימו</CardDescription>
+          <CardDescription>סקרים בארכיון</CardDescription>
         </CardHeader>
         <CardContent>
           <p className="text-3xl font-bold text-center">{statusCounts.completed}</p>
