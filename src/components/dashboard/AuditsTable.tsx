@@ -15,7 +15,8 @@ import {
   ChevronDown, 
   ChevronUp, 
   Mail,
-  Trash2 
+  Trash2,
+  UserCircle 
 } from "lucide-react";
 import { Audit, StatusType } from "@/types/types";
 import { StatusLogView } from "@/components/StatusLogView";
@@ -156,6 +157,7 @@ export const AuditsTable = ({
             <TableHead className="p-4 font-medium">סטטוס</TableHead>
             <TableHead className="p-4 font-medium">שם לקוח</TableHead>
             <TableHead className="p-4 font-medium">תאריך פגישה</TableHead>
+            <TableHead className="p-4 font-medium">יוצר הסקר</TableHead>
             <TableHead className="p-4 font-medium">פעולות</TableHead>
           </TableRow>
         </TableHeader>
@@ -171,6 +173,12 @@ export const AuditsTable = ({
                   <TableCell className="p-4">{audit.clientName || "לא צוין"}</TableCell>
                   <TableCell className="p-4">
                     {audit.plannedMeetingDate ? formatDate(audit.plannedMeetingDate) : "לא נקבע"}
+                  </TableCell>
+                  <TableCell className="p-4">
+                    <div className="flex items-center gap-1">
+                      <UserCircle className="h-4 w-4 text-gray-400" />
+                      <span>{audit.ownerName || "לא ידוע"}</span>
+                    </div>
                   </TableCell>
                   <TableCell className="p-4">
                     <div className="flex gap-2">
@@ -210,7 +218,7 @@ export const AuditsTable = ({
                 </TableRow>
                 {expandedAuditId === audit.id && (
                   <TableRow>
-                    <TableCell colSpan={5} className="p-4 bg-gray-50">
+                    <TableCell colSpan={6} className="p-4 bg-gray-50">
                       <StatusLogView statusLog={audit.statusLog} />
                     </TableCell>
                   </TableRow>
@@ -219,7 +227,7 @@ export const AuditsTable = ({
             ))
           ) : (
             <TableRow>
-              <TableCell colSpan={5} className="text-center py-4">
+              <TableCell colSpan={6} className="text-center py-4">
                 לא נמצאו סקרים
               </TableCell>
             </TableRow>

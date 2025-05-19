@@ -25,13 +25,16 @@ export const createAudit = (
       reason: "יצירת סקר",
       modifiedBy: user.name 
     }],
-    ownerId: user.email
+    ownerId: user.email,
+    ownerName: user.name // Ensure owner name is stored
   } as Audit;
 
   const newAudits = [...audits, newAudit];
   
   if (user.email) {
-    saveAuditsToStorage(user.email, newAudits);
+    saveAuditsToStorage(user.email, newAudits.filter(audit => audit.ownerId === user.email));
+    // Also save to global storage
+    saveAuditsToStorage(null, newAudits);
   }
   
   toast.success("סקר חדש נוצר בהצלחה");
@@ -140,7 +143,12 @@ export const updateAuditStatus = (
   );
   
   if (user?.email) {
-    saveAuditsToStorage(user.email, updatedAudits);
+    // For auditor, save only their audits
+    if (user.role === "בודק") {
+      saveAuditsToStorage(user.email, updatedAudits.filter(audit => audit.ownerId === user.email));
+    }
+    // For global storage or manager
+    saveAuditsToStorage(null, updatedAudits);
   }
   
   toast.success(`סטטוס הסקר עודכן ל-${newStatus}`);
@@ -186,7 +194,12 @@ export const deleteAudit = (
   const updatedAudits = audits.filter(audit => audit.id !== id);
   
   if (user?.email) {
-    saveAuditsToStorage(user.email, updatedAudits);
+    // For regular users, save only their audits
+    if (user.role === "בודק") {
+      saveAuditsToStorage(user.email, updatedAudits.filter(audit => audit.ownerId === user.email));
+    }
+    // Always update global storage
+    saveAuditsToStorage(null, updatedAudits);
   }
   
   toast.success(`סקר נמחק בהצלחה`);

@@ -6,8 +6,13 @@ import { createAudit, editAudit, deleteAudit, updateAuditStatus } from '@/utils/
 import { sendNotificationEmail } from '@/utils/notificationUtils';
 
 export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
-  // Initialize audits from localStorage based on user
+  // Initialize audits from localStorage
   const [audits, setAudits] = useState<Audit[]>(() => {
+    // For managers, we need to load all audits
+    if (user?.role === "מנהלת") {
+      return getStoredAudits(null); // Pass null to get all audits
+    }
+    
     if (!user?.email) return initialAudits;
     
     const storedAudits = getStoredAudits(user.email);
@@ -17,10 +22,11 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
       // Update the sample audits to have the current user as owner
       const userSampleAudits = sampleAudits.map(audit => ({
         ...audit,
-        ownerId: user.email
+        ownerId: user.email,
+        ownerName: user.name // Add owner name to sample audits
       }));
       
-      // Save these to localStorage
+      // Save these to localStorage with proper keys
       saveAuditsToStorage(user.email, userSampleAudits);
       return userSampleAudits;
     }
@@ -35,9 +41,16 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
   // Save audits to localStorage whenever they change and user is logged in
   useEffect(() => {
     if (user?.email) {
-      saveAuditsToStorage(user.email, audits);
+      // For regular users, save only their audits
+      if (user.role === "בודק") {
+        saveAuditsToStorage(user.email, audits.filter(audit => audit.ownerId === user.email));
+      } 
+      // For managers, save all audits globally
+      else if (user.role === "מנהלת") {
+        saveAuditsToStorage(null, audits);
+      }
     }
-  }, [audits, user?.email]);
+  }, [audits, user?.email, user?.role]);
 
   // Determine which audits the user can see
   const filteredAudits = user?.role === "מנהלת" 

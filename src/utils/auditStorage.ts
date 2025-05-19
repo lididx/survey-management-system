@@ -8,7 +8,7 @@ export const sampleAudits: Audit[] = [
     id: "1",
     name: "סקר אבטחה מערכת CRM",
     description: "סקר אבטחת מידע למערכת CRM של החברה",
-    clientName: "SAP", // Added client name
+    clientName: "SAP", 
     contacts: [
       { id: "c1", fullName: "יוסי כהן", role: "מנהל מערכת", email: "yossi@example.com", phone: "050-1234567", gender: "male" }
     ],
@@ -57,13 +57,14 @@ export const sampleAudits: Audit[] = [
         modifiedBy: "לידור"
       }
     ],
-    ownerId: "lidor@example.com"
+    ownerId: "lidor@example.com",
+    ownerName: "לידור"
   },
   {
     id: "2",
     name: "סקר אבטחה שרתי מידע",
     description: "סקר אבטחת מידע לשרתי המידע של החברה",
-    clientName: "Microsoft", // Added client name
+    clientName: "Microsoft",
     contacts: [
       { id: "c2", fullName: "שרה לוי", role: "מנהלת תשתיות", email: "sarah@example.com", phone: "050-7654321", gender: "female" },
       { id: "c3", fullName: "דוד ישראלי", role: "מנהל אבטחת מידע", email: "david@example.com", phone: "052-1234567", gender: "male" }
@@ -93,13 +94,14 @@ export const sampleAudits: Audit[] = [
         modifiedBy: "לידור"
       }
     ],
-    ownerId: "lidor@example.com"
+    ownerId: "lidor@example.com",
+    ownerName: "לידור"
   },
   {
     id: "3",
     name: "סקר תשתיות רשת",
     description: "סקר אבטחת מידע לתשתיות הרשת",
-    clientName: "Oracle", // Added client name
+    clientName: "Oracle",
     contacts: [
       { id: "c4", fullName: "רחל גולן", role: "מנהלת רשת", email: "rachel@example.com", phone: "054-9876543", gender: "female" }
     ],
@@ -138,41 +140,87 @@ export const sampleAudits: Audit[] = [
         modifiedBy: "מורן"
       }
     ],
-    ownerId: "moran@example.com"
+    ownerId: "moran@example.com",
+    ownerName: "מורן"
   }
 ];
 
-// Helper functions for localStorage
-export const getStorageKey = (userEmail: string) => `audits_${userEmail}`;
+// Global storage key for all audits
+const GLOBAL_AUDITS_KEY = 'all_audits';
 
-export const getStoredAudits = (userEmail: string): Audit[] => {
+// Helper functions for localStorage
+export const getStorageKey = (userEmail: string | null) => {
+  return userEmail ? `audits_${userEmail}` : GLOBAL_AUDITS_KEY;
+};
+
+export const getStoredAudits = (userEmail: string | null): Audit[] => {
   try {
-    const storedData = localStorage.getItem(getStorageKey(userEmail));
-    if (!storedData) return [];
+    // For managers (userEmail is null), get all audits
+    const storageKey = getStorageKey(userEmail);
+    const storedData = localStorage.getItem(storageKey);
     
-    const parsedData = JSON.parse(storedData);
+    if (!storedData) {
+      // If no global audits exist but we're requesting all, initialize from user audits
+      if (storageKey === GLOBAL_AUDITS_KEY) {
+        const allUserKeys = Object.keys(localStorage).filter(key => key.startsWith('audits_'));
+        if (allUserKeys.length > 0) {
+          const allAudits: Audit[] = [];
+          allUserKeys.forEach(key => {
+            const userData = localStorage.getItem(key);
+            if (userData) {
+              allAudits.push(...parseAuditsData(userData));
+            }
+          });
+          return allAudits;
+        }
+      }
+      return [];
+    }
     
-    // Convert string dates back to Date objects
-    return parsedData.map((audit: any) => ({
-      ...audit,
-      receivedDate: audit.receivedDate ? new Date(audit.receivedDate) : null,
-      plannedMeetingDate: audit.plannedMeetingDate ? new Date(audit.plannedMeetingDate) : null,
-      statusLog: audit.statusLog?.map((log: any) => ({
-        ...log,
-        timestamp: log.timestamp ? new Date(log.timestamp) : null,
-        oldDate: log.oldDate ? new Date(log.oldDate) : null,
-        newDate: log.newDate ? new Date(log.newDate) : null,
-      })) || [],
-    }));
+    return parseAuditsData(storedData);
   } catch (error) {
     console.error("Error loading audits from localStorage:", error);
     return [];
   }
 };
 
-export const saveAuditsToStorage = (userEmail: string, audits: Audit[]) => {
+// Helper function to parse audit data and convert dates
+const parseAuditsData = (jsonData: string): Audit[] => {
+  const parsedData = JSON.parse(jsonData);
+  
+  // Convert string dates back to Date objects
+  return parsedData.map((audit: any) => ({
+    ...audit,
+    receivedDate: audit.receivedDate ? new Date(audit.receivedDate) : null,
+    plannedMeetingDate: audit.plannedMeetingDate ? new Date(audit.plannedMeetingDate) : null,
+    statusLog: audit.statusLog?.map((log: any) => ({
+      ...log,
+      timestamp: log.timestamp ? new Date(log.timestamp) : null,
+      oldDate: log.oldDate ? new Date(log.oldDate) : null,
+      newDate: log.newDate ? new Date(log.newDate) : null,
+    })) || [],
+  }));
+};
+
+export const saveAuditsToStorage = (userEmail: string | null, audits: Audit[]) => {
   try {
-    localStorage.setItem(getStorageKey(userEmail), JSON.stringify(audits));
+    const storageKey = getStorageKey(userEmail);
+    localStorage.setItem(storageKey, JSON.stringify(audits));
+    
+    // If saving user-specific audits, also update the global audit storage
+    if (userEmail && storageKey !== GLOBAL_AUDITS_KEY) {
+      // Get all current global audits
+      const globalAudits = getStoredAudits(null);
+      
+      // Remove this user's old audits
+      const filteredGlobalAudits = globalAudits.filter(audit => audit.ownerId !== userEmail);
+      
+      // Add this user's new audits
+      const updatedGlobalAudits = [...filteredGlobalAudits, ...audits];
+      
+      // Save back to global storage
+      localStorage.setItem(GLOBAL_AUDITS_KEY, JSON.stringify(updatedGlobalAudits));
+    }
   } catch (error) {
     console.error("Error saving audits to localStorage:", error);
     toast.error("שגיאה בשמירת נתונים מקומית");

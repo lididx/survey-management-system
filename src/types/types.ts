@@ -41,6 +41,7 @@ export interface Audit {
   currentStatus: StatusType;
   statusLog: StatusChange[];
   ownerId: string;
+  ownerName?: string; // Add owner name to display who created the audit
 }
 
 export type UserRole = "בודק" | "מנהלת";
