@@ -62,6 +62,11 @@ export const AuditForm = ({ audit, onSubmit, onCancel, mode }: AuditFormProps) =
       return;
     }
     
+    if (formData.contacts && formData.contacts.length === 0) {
+      toast.error("יש להוסיף לפחות איש קשר אחד");
+      return;
+    }
+    
     if (mode === "edit") {
       // Check if status was changed
       if (initialStatus !== formData.currentStatus) {
@@ -111,7 +116,7 @@ export const AuditForm = ({ audit, onSubmit, onCancel, mode }: AuditFormProps) =
       }
     }
     
-    // For new audits, set receivedDate to now
+    // For new audits, set receivedDate to now and create initial status log
     if (mode === "create") {
       formData.id = crypto.randomUUID();
       formData.receivedDate = new Date();

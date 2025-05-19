@@ -16,7 +16,7 @@ interface StatusLogViewProps {
 
 export const StatusLogView = ({ statusLog }: StatusLogViewProps) => {
   if (!statusLog || statusLog.length === 0) {
-    return <div className="text-center py-4 text-gray-500">אין שינויים לוג</div>;
+    return <div className="text-center py-4 text-gray-500">אין שינויים בלוג</div>;
   }
 
   // Sort log entries by timestamp, newest first

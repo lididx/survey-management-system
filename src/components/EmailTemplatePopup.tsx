@@ -1,19 +1,10 @@
 
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { Audit } from "@/types/types";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { toast } from "sonner";
 import { useState } from "react";
-import { Copy } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Audit } from "@/types/types";
+import { toast } from "sonner";
+import { Clipboard, Check } from "lucide-react";
 
 interface EmailTemplatePopupProps {
   audit: Audit;
@@ -22,100 +13,99 @@ interface EmailTemplatePopupProps {
 }
 
 export const EmailTemplatePopup = ({ audit, open, onClose }: EmailTemplatePopupProps) => {
-  const [recipientCount, setRecipientCount] = useState(audit.contacts.length);
+  const [copiedSubject, setCopiedSubject] = useState(false);
+  const [copiedBody, setCopiedBody] = useState(false);
   
   const emailSubject = `תיאום סקר אבטחה: ${audit.name}`;
-  const emailBody = `שלום,
+  
+  const emailBody = `שלום ${audit.contacts?.[0]?.fullName || ""},
 
-במסגרת עבודתנו על סקר אבטחת מידע למערכת "${audit.name}", אנו צריכים לתאם פגישה עם מנהל המערכת ובעלי תפקידים רלוונטיים.
+בהמשך לפנייתך, נדרש לבצע סקר אבטחת מידע למערכת ${audit.name}.
 
-הסקר כולל:
-1. הצגת המערכת ותהליכים עסקיים עיקריים
-2. ממשקים חיצוניים
-3. תהליכי עבודה מרכזיים
-4. אמצעי אבטחה קיימים
-5. הדגמת המערכת
+אשמח לתאם פגישה לצורך היכרות עם המערכת והבנת הצרכים. להלן מספר תאריכים אפשריים:
+1. יום א', XX/XX בשעה HH:MM
+2. יום ב', XX/XX בשעה HH:MM
+3. יום ג', XX/XX בשעה HH:MM
 
-הפגישה צפויה להימשך כשעה.
-נשמח לתיאום בהקדם.
+אודה לבחירת מועד מתאים מהרשימה או הצעת מועד חלופי.
+
+בנוסף, אשמח אם תוכל/י לספק:
+1. שם מלא ותפקיד של אנשי קשר רלוונטיים שישתתפו בפגישה
+2. תיאור קצר של המערכת והפונקציונליות שלה
+3. מסמכים רלוונטיים (אם יש) שיעזרו להבין את המערכת טרם הפגישה
+
+לכל שאלה או בקשה נוספת, אני זמין/ה.
 
 בברכה,
-${JSON.parse(localStorage.getItem("user") || '{"name":""}').name}
-צוות אבטחת מידע`;
+${JSON.parse(localStorage.getItem("user") || "{}")?.name || "שם הבודק"}
+יועץ/ת אבטחת מידע`;
 
-  const copyToClipboard = (text: string, type: 'subject' | 'body') => {
-    navigator.clipboard.writeText(text);
-    toast.success(`ה${type === 'subject' ? 'נושא' : 'תוכן'} הועתק ללוח`);
+  const handleCopySubject = async () => {
+    try {
+      await navigator.clipboard.writeText(emailSubject);
+      setCopiedSubject(true);
+      toast.success("נושא המייל הועתק בהצלחה");
+      setTimeout(() => setCopiedSubject(false), 2000);
+    } catch (err) {
+      toast.error("שגיאה בהעתקת נושא המייל");
+    }
+  };
+
+  const handleCopyBody = async () => {
+    try {
+      await navigator.clipboard.writeText(emailBody);
+      setCopiedBody(true);
+      toast.success("תוכן המייל הועתק בהצלחה");
+      setTimeout(() => setCopiedBody(false), 2000);
+    } catch (err) {
+      toast.error("שגיאה בהעתקת תוכן המייל");
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md md:max-w-lg" dir="rtl">
+      <DialogContent className="max-w-3xl" dir="rtl">
         <DialogHeader>
-          <DialogTitle>תבנית מייל לתיאום סקר</DialogTitle>
+          <DialogTitle className="text-xl">תבנית מייל לתיאום פגישה</DialogTitle>
         </DialogHeader>
         
-        <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="recipients">מספר נמענים</Label>
-              <div className="text-sm text-gray-500">
-                {recipientCount} {recipientCount === 1 ? "נמען" : "נמענים"}
-              </div>
-            </div>
-            <Input
-              id="recipients"
-              type="number"
-              min="1"
-              value={recipientCount}
-              onChange={(e) => setRecipientCount(parseInt(e.target.value) || 1)}
-            />
-          </div>
-          
-          <div className="grid gap-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="subject">נושא</Label>
-              <Button
-                variant="ghost"
+        <div className="mt-4 space-y-6">
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <h3 className="font-semibold">נושא:</h3>
+              <Button 
+                variant="outline" 
                 size="sm"
-                className="h-8 text-xs"
-                onClick={() => copyToClipboard(emailSubject, 'subject')}
+                className="flex items-center gap-2"
+                onClick={handleCopySubject}
               >
-                <Copy className="mr-2 h-3.5 w-3.5" />
-                העתק
+                {copiedSubject ? <Check className="h-4 w-4" /> : <Clipboard className="h-4 w-4" />}
+                העתק נושא
               </Button>
             </div>
-            <Input id="subject" value={emailSubject} readOnly />
+            <div className="bg-muted p-3 rounded-md">{emailSubject}</div>
           </div>
           
-          <div className="grid gap-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="body">תוכן המייל</Label>
-              <Button
-                variant="ghost"
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <h3 className="font-semibold">תוכן:</h3>
+              <Button 
+                variant="outline" 
                 size="sm"
-                className="h-8 text-xs"
-                onClick={() => copyToClipboard(emailBody, 'body')}
+                className="flex items-center gap-2"
+                onClick={handleCopyBody}
               >
-                <Copy className="mr-2 h-3.5 w-3.5" />
-                העתק
+                {copiedBody ? <Check className="h-4 w-4" /> : <Clipboard className="h-4 w-4" />}
+                העתק תוכן
               </Button>
             </div>
-            <Textarea
-              id="body"
-              value={emailBody}
-              readOnly
-              rows={12}
-              className="font-mono text-sm"
-            />
+            <div className="bg-muted p-3 rounded-md whitespace-pre-line">{emailBody}</div>
+          </div>
+          
+          <div className="pt-4 flex justify-end">
+            <Button onClick={onClose}>סגור</Button>
           </div>
         </div>
-        
-        <DialogFooter className="sm:justify-start">
-          <Button type="button" onClick={onClose}>
-            סגור
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
