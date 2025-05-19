@@ -194,6 +194,7 @@ const Dashboard = () => {
     if (formMode === "create") {
       setIsFormOpen(false);
       if (result) {
+        setNewlyCreatedAudit(result);
         setShowRecipientInput(true);
       }
     } else if (formMode === "edit") {

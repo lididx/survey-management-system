@@ -57,7 +57,7 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
           oldDate: null,
           newDate: null,
           reason: "יצירת סקר",
-          modifiedBy: user.name // Add user name for initial creation
+          modifiedBy: user.name // Include user name who created the audit
         }],
         ownerId: user.email
       } as Audit;
@@ -65,8 +65,7 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
       setAudits([...audits, newAudit]);
       toast.success("סקר חדש נוצר בהצלחה");
       
-      // הצגת שדה מספר נמענים לאחר היצירה
-      setNewlyCreatedAudit(newAudit);
+      // Return the new audit so we can use it in the email template
       return newAudit;
     } else if (formMode === "edit" && currentAudit) {
       // בדיקת הרשאות עריכה
