@@ -7,11 +7,18 @@ import {
 } from './auditStorage';
 import { checkForStalledAudits, sendNotificationEmail } from './notificationUtils';
 
+// Debug helper function
+const debugStorage = (message: string, data?: any) => {
+  console.log(`DEBUG: ${message}`, data || '');
+};
+
 export const createAudit = (
   auditData: Partial<Audit>, 
   audits: Audit[], 
   user: User
 ): { newAudits: Audit[], newAudit: Audit } => {
+  debugStorage("Creating new audit for user", user.email);
+  
   const newId = Date.now().toString();
   const newAudit = {
     ...auditData,
@@ -29,30 +36,42 @@ export const createAudit = (
       modifiedBy: user.name 
     }],
     ownerId: user.email,
-    ownerName: user.name // Ensure owner name is stored
+    ownerName: user.name
   } as Audit;
 
+  // Add the new audit to the local state (current session)
   const newAudits = [...audits, newAudit];
   
-  // Correctly update both user-specific and global storage
-  if (user.email) {
-    if (user.role === "בודק") {
-      // Save to user-specific storage first
-      saveAuditsToStorage(user.email, newAudits.filter(audit => audit.ownerId === user.email));
-      
-      // Get current global audits, filter out this user's old ones, and add the new ones
-      const globalAudits = getStoredAudits(null);
-      const otherUserAudits = globalAudits.filter(audit => audit.ownerId !== user.email);
+  try {
+    // 1. Always update user-specific storage first (if applicable)
+    if (user.email && user.role === "בודק") {
+      // Get only THIS user's audits (filtering out other users' data that might be in the local state)
       const userAudits = newAudits.filter(audit => audit.ownerId === user.email);
-      const updatedGlobalAudits = [...otherUserAudits, ...userAudits];
-      
-      // Save updated global audits
-      saveAuditsToStorage(null, updatedGlobalAudits);
-    } 
-    // For managers, simply save all audits globally
-    else if (user.role === "מנהלת") {
-      saveAuditsToStorage(null, newAudits);
+      debugStorage(`Saving ${userAudits.length} audits to user-specific storage for ${user.email}`);
+      saveAuditsToStorage(user.email, userAudits);
     }
+    
+    // 2. ALWAYS update global storage regardless of user role
+    // First get the CURRENT global audits from storage
+    const globalAudits = getStoredAudits(null);
+    debugStorage(`Retrieved ${globalAudits.length} existing global audits`);
+    
+    // Remove THIS user's audits from the global list (to avoid duplicates)
+    const otherUserAudits = globalAudits.filter(audit => audit.ownerId !== user.email);
+    debugStorage(`Filtered to ${otherUserAudits.length} audits from other users`);
+    
+    // Get THIS user's updated audits
+    const thisUserAudits = newAudits.filter(audit => audit.ownerId === user.email);
+    
+    // Combine other users' audits with this user's updated audits
+    const updatedGlobalAudits = [...otherUserAudits, ...thisUserAudits];
+    debugStorage(`Saving ${updatedGlobalAudits.length} total audits to global storage`);
+    
+    // Save the combined list to global storage
+    saveAuditsToStorage(null, updatedGlobalAudits);
+  } catch (error) {
+    console.error("Error saving audit data:", error);
+    toast.error("שגיאה בשמירת הנתונים");
   }
   
   toast.success("סקר חדש נוצר בהצלחה");
@@ -67,6 +86,8 @@ export const editAudit = (
   user: User | null,
   canEdit: (auditOwnerId: string) => boolean
 ): { updatedAudits: Audit[], updatedAudit: Audit | null } => {
+  debugStorage(`Editing audit ${currentAudit.id}`);
+  
   if (!canEdit(currentAudit.ownerId)) {
     toast.error("אין לך הרשאה לערוך את הסקר הזה");
     return { updatedAudits: audits, updatedAudit: null };
@@ -76,31 +97,34 @@ export const editAudit = (
     audit.id === currentAudit.id ? { ...audit, ...auditData } : audit
   );
   
-  // Correctly update both user-specific and global storage
-  if (user?.email) {
-    if (user.role === "בודק") {
-      // Save to user-specific storage first
-      const userAudits = updatedAudits.filter(audit => audit.ownerId === user.email);
-      saveAuditsToStorage(user.email, userAudits);
+  try {
+    if (user?.email) {
+      // 1. Update user-specific storage first (if applicable)
+      if (user.role === "בודק") {
+        const userAudits = updatedAudits.filter(audit => audit.ownerId === user.email);
+        debugStorage(`Saving ${userAudits.length} updated audits to user-specific storage`);
+        saveAuditsToStorage(user.email, userAudits);
+      }
       
-      // Get current global audits, filter out this user's old ones, and add the updated ones
+      // 2. ALWAYS update global storage
       const globalAudits = getStoredAudits(null);
       const otherUserAudits = globalAudits.filter(audit => audit.ownerId !== user.email);
-      const updatedGlobalAudits = [...otherUserAudits, ...userAudits];
+      const thisUserAudits = updatedAudits.filter(audit => audit.ownerId === user.email);
+      const updatedGlobalAudits = [...otherUserAudits, ...thisUserAudits];
       
-      // Save updated global audits
+      debugStorage(`Saving ${updatedGlobalAudits.length} total audits to global storage after edit`);
       saveAuditsToStorage(null, updatedGlobalAudits);
-    } 
-    // For managers, simply save all audits globally
-    else if (user.role === "מנהלת") {
-      saveAuditsToStorage(null, updatedAudits);
     }
+  } catch (error) {
+    console.error("Error saving edited audit data:", error);
+    toast.error("שגיאה בשמירת הנתונים המעודכנים");
   }
   
   toast.success("סקר עודכן בהצלחה");
   
   const updatedAudit = updatedAudits.find(audit => audit.id === currentAudit.id) || null;
   
+  // Notification logic for status changes
   if (updatedAudit && auditData.currentStatus === "בבקרה" && currentAudit.currentStatus !== "בבקרה") {
     sendNotificationEmail(
       "chen@example.com",
@@ -132,6 +156,8 @@ export const updateAuditStatus = (
   user: User | null,
   canEdit: (auditOwnerId: string) => boolean
 ): Audit[] => {
+  debugStorage(`Updating status of audit ${auditId} to ${newStatus}`);
+  
   const auditToUpdate = audits.find(audit => audit.id === auditId);
   
   if (!auditToUpdate) {
@@ -177,25 +203,27 @@ export const updateAuditStatus = (
     audit.id === auditId ? updatedAudit : audit
   );
   
-  // Correctly update both user-specific and global storage
-  if (user?.email) {
-    if (user.role === "בודק") {
-      // Save to user-specific storage first
-      const userAudits = updatedAudits.filter(audit => audit.ownerId === user.email);
-      saveAuditsToStorage(user.email, userAudits);
+  try {
+    if (user?.email) {
+      // 1. Update user-specific storage first (if applicable)
+      if (user.role === "בודק") {
+        const userAudits = updatedAudits.filter(audit => audit.ownerId === user.email);
+        debugStorage(`Saving ${userAudits.length} audits to user-specific storage after status update`);
+        saveAuditsToStorage(user.email, userAudits);
+      }
       
-      // Get current global audits, filter out this user's old ones, and add the updated ones
+      // 2. ALWAYS update global storage
       const globalAudits = getStoredAudits(null);
       const otherUserAudits = globalAudits.filter(audit => audit.ownerId !== user.email);
-      const updatedGlobalAudits = [...otherUserAudits, ...userAudits];
+      const thisUserAudits = updatedAudits.filter(audit => audit.ownerId === user.email);
+      const updatedGlobalAudits = [...otherUserAudits, ...thisUserAudits];
       
-      // Save updated global audits
+      debugStorage(`Saving ${updatedGlobalAudits.length} total audits to global storage after status update`);
       saveAuditsToStorage(null, updatedGlobalAudits);
-    } 
-    // For managers, simply save all audits globally
-    else if (user.role === "מנהלת") {
-      saveAuditsToStorage(null, updatedAudits);
     }
+  } catch (error) {
+    console.error("Error saving status update:", error);
+    toast.error("שגיאה בשמירת עדכון הסטטוס");
   }
   
   toast.success(`סטטוס הסקר עודכן ל-${newStatus}`);
@@ -227,6 +255,8 @@ export const deleteAudit = (
   user: User | null,
   canDelete: (auditOwnerId: string) => boolean
 ): Audit[] => {
+  debugStorage(`Attempting to delete audit ${id}`);
+  
   const auditToDelete = audits.find(a => a.id === id);
   if (!auditToDelete) {
     toast.error("לא נמצא סקר למחיקה");
@@ -240,25 +270,29 @@ export const deleteAudit = (
   
   const updatedAudits = audits.filter(audit => audit.id !== id);
   
-  // Correctly update both user-specific and global storage
-  if (user?.email) {
-    if (user.role === "בודק") {
-      // Save to user-specific storage first (possibly empty array)
-      const userAudits = updatedAudits.filter(audit => audit.ownerId === user.email);
-      saveAuditsToStorage(user.email, userAudits);
+  try {
+    if (user?.email) {
+      // 1. Update user-specific storage first (if applicable)
+      if (user.role === "בודק") {
+        const userAudits = updatedAudits.filter(audit => audit.ownerId === user.email);
+        debugStorage(`Saving ${userAudits.length} remaining audits to user-specific storage after delete`);
+        saveAuditsToStorage(user.email, userAudits);
+      }
       
-      // Get current global audits, filter out this user's old ones, and add the updated ones (if any)
+      // 2. ALWAYS update global storage
       const globalAudits = getStoredAudits(null);
-      const otherUserAudits = globalAudits.filter(audit => audit.ownerId !== user.email);
-      const updatedGlobalAudits = [...otherUserAudits, ...userAudits];
+      const otherUserAudits = globalAudits.filter(audit => 
+        audit.ownerId !== user.email || (audit.ownerId === user.email && audit.id !== id)
+      );
+      const thisUserAudits = updatedAudits.filter(audit => audit.ownerId === user.email);
+      const updatedGlobalAudits = [...otherUserAudits, ...thisUserAudits];
       
-      // Save updated global audits
+      debugStorage(`Saving ${updatedGlobalAudits.length} total audits to global storage after delete`);
       saveAuditsToStorage(null, updatedGlobalAudits);
-    } 
-    // For managers, simply save all audits globally
-    else if (user.role === "מנהלת") {
-      saveAuditsToStorage(null, updatedAudits);
     }
+  } catch (error) {
+    console.error("Error saving after delete:", error);
+    toast.error("שגיאה במחיקת הסקר");
   }
   
   toast.success(`סקר נמחק בהצלחה`);

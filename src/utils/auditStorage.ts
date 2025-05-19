@@ -1,3 +1,4 @@
+
 import { Audit } from '@/types/types';
 import { toast } from 'sonner';
 
@@ -169,29 +170,50 @@ export const markUserAsInitialized = (userEmail: string): void => {
 
 export const getStoredAudits = (userEmail: string | null): Audit[] => {
   try {
+    console.log(`Fetching audits for ${userEmail || 'ALL USERS (global)'}`);
+    
     // For managers (userEmail is null), get all audits
     const storageKey = getStorageKey(userEmail);
     const storedData = localStorage.getItem(storageKey);
     
     if (!storedData) {
-      // If no global audits exist but we're requesting all, initialize from user audits
+      console.log(`No stored data found for key: ${storageKey}`);
+      
+      // If no global audits exist but we're requesting all, try to aggregate from user audits
       if (storageKey === GLOBAL_AUDITS_KEY) {
+        console.log("Attempting to rebuild global audits from user data");
         const allUserKeys = Object.keys(localStorage).filter(key => key.startsWith('audits_'));
+        
         if (allUserKeys.length > 0) {
           const allAudits: Audit[] = [];
           allUserKeys.forEach(key => {
             const userData = localStorage.getItem(key);
             if (userData) {
-              allAudits.push(...parseAuditsData(userData));
+              try {
+                const parsedUserAudits = parseAuditsData(userData);
+                console.log(`Found ${parsedUserAudits.length} audits for key ${key}`);
+                allAudits.push(...parsedUserAudits);
+              } catch (e) {
+                console.error(`Error parsing user data for key ${key}:`, e);
+              }
             }
           });
+          
+          console.log(`Reconstructed ${allAudits.length} total audits from user data`);
+          // Save this reconstructed data back to global storage for future use
+          if (allAudits.length > 0) {
+            localStorage.setItem(GLOBAL_AUDITS_KEY, JSON.stringify(allAudits));
+          }
+          
           return allAudits;
         }
       }
       return [];
     }
     
-    return parseAuditsData(storedData);
+    const parsedAudits = parseAuditsData(storedData);
+    console.log(`Retrieved ${parsedAudits.length} audits from ${storageKey}`);
+    return parsedAudits;
   } catch (error) {
     console.error("Error loading audits from localStorage:", error);
     return [];
@@ -200,29 +222,36 @@ export const getStoredAudits = (userEmail: string | null): Audit[] => {
 
 // Helper function to parse audit data and convert dates
 const parseAuditsData = (jsonData: string): Audit[] => {
-  const parsedData = JSON.parse(jsonData);
-  
-  // Convert string dates back to Date objects
-  return parsedData.map((audit: any) => ({
-    ...audit,
-    receivedDate: audit.receivedDate ? new Date(audit.receivedDate) : null,
-    plannedMeetingDate: audit.plannedMeetingDate ? new Date(audit.plannedMeetingDate) : null,
-    statusLog: audit.statusLog?.map((log: any) => ({
-      ...log,
-      timestamp: log.timestamp ? new Date(log.timestamp) : null,
-      oldDate: log.oldDate ? new Date(log.oldDate) : null,
-      newDate: log.newDate ? new Date(log.newDate) : null,
-    })) || [],
-  }));
+  try {
+    const parsedData = JSON.parse(jsonData);
+    
+    // Convert string dates back to Date objects
+    return parsedData.map((audit: any) => ({
+      ...audit,
+      receivedDate: audit.receivedDate ? new Date(audit.receivedDate) : null,
+      plannedMeetingDate: audit.plannedMeetingDate ? new Date(audit.plannedMeetingDate) : null,
+      statusLog: audit.statusLog?.map((log: any) => ({
+        ...log,
+        timestamp: log.timestamp ? new Date(log.timestamp) : null,
+        oldDate: log.oldDate ? new Date(log.oldDate) : null,
+        newDate: log.newDate ? new Date(log.newDate) : null,
+      })) || [],
+    }));
+  } catch (e) {
+    console.error("Error parsing JSON data:", e);
+    return [];
+  }
 };
 
 export const saveAuditsToStorage = (userEmail: string | null, audits: Audit[]) => {
   try {
     const storageKey = getStorageKey(userEmail);
-    localStorage.setItem(storageKey, JSON.stringify(audits));
+    console.log(`Saving ${audits.length} audits to ${storageKey}`);
     
-    // We're now directly handling global storage in each operation function
-    // So we don't need the additional logic here that was causing conflicts
+    // Ensure we're writing valid JSON
+    const jsonData = JSON.stringify(audits);
+    localStorage.setItem(storageKey, jsonData);
+    console.log(`Successfully saved data to ${storageKey}`);
   } catch (error) {
     console.error("Error saving audits to localStorage:", error);
     toast.error("שגיאה בשמירת נתונים מקומית");

@@ -10,56 +10,80 @@ import {
 } from '@/utils/auditStorage';
 import { createAudit, editAudit, deleteAudit, updateAuditStatus } from '@/utils/auditOperations';
 import { sendNotificationEmail } from '@/utils/notificationUtils';
+import { toast } from 'sonner';
 
 export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
   // Initialize audits from localStorage
   const [audits, setAudits] = useState<Audit[]>(() => {
-    // For managers, we need to load all audits
-    if (user?.role === "מנהלת") {
-      return getStoredAudits(null); // Pass null to get all audits
+    if (!user) {
+      console.log("No user provided, using initial audits");
+      return initialAudits;
     }
     
-    if (!user?.email) return initialAudits;
+    console.log(`Initializing audits for user: ${user.email}, role: ${user.role}`);
     
-    const storedAudits = getStoredAudits(user.email);
-    
-    // Only seed with sample data if:
-    // 1. User is an auditor ("בודק")
-    // 2. There are no stored audits for this user
-    // 3. User has not been initialized before
-    if (storedAudits.length === 0 && user.role === "בודק" && !isUserInitialized(user.email)) {
-      console.log("Initializing user with sample data");
+    try {
+      // For managers, we need to load all audits
+      if (user.role === "מנהלת") {
+        console.log("Loading all audits for manager");
+        const allAudits = getStoredAudits(null); // Pass null to get all audits
+        console.log(`Loaded ${allAudits.length} audits from global storage for manager`);
+        return allAudits;
+      }
       
-      // Update the sample audits to have the current user as owner
-      const userSampleAudits = sampleAudits.map(audit => ({
-        ...audit,
-        ownerId: user.email,
-        ownerName: user.name // Add owner name to sample audits
-      }));
+      if (!user.email) {
+        console.log("No user email, using initial audits");
+        return initialAudits;
+      }
       
-      // Mark user as initialized to prevent reloading sample data on next login
-      markUserAsInitialized(user.email);
+      // For regular users, load their specific audits
+      console.log(`Loading audits for user email: ${user.email}`);
+      const storedAudits = getStoredAudits(user.email);
+      console.log(`Loaded ${storedAudits.length} audits for user ${user.email}`);
       
-      // Save these to localStorage with proper keys
-      saveAuditsToStorage(user.email, userSampleAudits);
+      // Only seed with sample data if:
+      // 1. User is an auditor ("בודק")
+      // 2. There are no stored audits for this user
+      // 3. User has not been initialized before
+      if (storedAudits.length === 0 && user.role === "בודק" && !isUserInitialized(user.email)) {
+        console.log("Initializing user with sample data");
+        
+        // Update the sample audits to have the current user as owner
+        const userSampleAudits = sampleAudits.map(audit => ({
+          ...audit,
+          ownerId: user.email,
+          ownerName: user.name // Add owner name to sample audits
+        }));
+        
+        // Mark user as initialized to prevent reloading sample data on next login
+        markUserAsInitialized(user.email);
+        
+        // Save user-specific audits
+        console.log(`Saving ${userSampleAudits.length} sample audits for user ${user.email}`);
+        saveAuditsToStorage(user.email, userSampleAudits);
+        
+        // CRITICAL: Also save to global storage properly
+        console.log("Updating global storage with sample audits");
+        const globalAudits = getStoredAudits(null);
+        const otherUserAudits = globalAudits.filter(audit => audit.ownerId !== user.email);
+        const updatedGlobalAudits = [...otherUserAudits, ...userSampleAudits];
+        console.log(`Saving ${updatedGlobalAudits.length} audits to global storage (initialization)`);
+        saveAuditsToStorage(null, updatedGlobalAudits);
+        
+        return userSampleAudits;
+      }
       
-      // Also save to global storage properly
-      const globalAudits = getStoredAudits(null);
-      const otherUserAudits = globalAudits.filter(audit => audit.ownerId !== user.email);
-      saveAuditsToStorage(null, [...otherUserAudits, ...userSampleAudits]);
-      
-      return userSampleAudits;
+      return storedAudits;
+    } catch (error) {
+      console.error("Error initializing audits:", error);
+      toast.error("שגיאה בטעינת נתונים");
+      return initialAudits;
     }
-    
-    return storedAudits;
   });
   
   const [currentAudit, setCurrentAudit] = useState<Audit | null>(null);
   const [newlyCreatedAudit, setNewlyCreatedAudit] = useState<Audit | null>(null);
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
-
-  // We don't need this useEffect anymore as we're now handling storage updates directly in the operation functions
-  // This prevents conflicts and synchronization issues
   
   // Determine which audits the user can see
   const filteredAudits = user?.role === "מנהלת" 
