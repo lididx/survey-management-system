@@ -12,7 +12,24 @@ import {
   TableCell
 } from "@/components/ui/table";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle } from "lucide-react";
+import { PlusCircle, X } from "lucide-react";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogFooter,
+  DialogClose
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
 
 // Sample data for demonstration
 const sampleAudits = [
@@ -24,6 +41,13 @@ const sampleAudits = [
 const Dashboard = () => {
   const [user, setUser] = useState<any>(null);
   const [audits, setAudits] = useState(sampleAudits);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [newAudit, setNewAudit] = useState({
+    name: "",
+    status: "ממתין",
+    assignedTo: "",
+    date: new Date().toISOString().split('T')[0]
+  });
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -44,8 +68,33 @@ const Dashboard = () => {
   };
 
   const handleAddAudit = () => {
-    toast.info("פתיחת טופס יצירת סקר חדש");
-    // In a real application, this would open a form or navigate to a create page
+    setIsAddDialogOpen(true);
+  };
+
+  const submitNewAudit = () => {
+    if (!newAudit.name.trim() || !newAudit.assignedTo.trim()) {
+      toast.error("יש למלא את כל השדות החובה");
+      return;
+    }
+
+    const newId = audits.length > 0 ? Math.max(...audits.map(a => a.id)) + 1 : 1;
+    const auditToAdd = {
+      id: newId,
+      name: newAudit.name,
+      status: newAudit.status,
+      assignedTo: newAudit.assignedTo,
+      date: newAudit.date,
+    };
+
+    setAudits([...audits, auditToAdd]);
+    setNewAudit({
+      name: "",
+      status: "ממתין",
+      assignedTo: "",
+      date: new Date().toISOString().split('T')[0]
+    });
+    setIsAddDialogOpen(false);
+    toast.success("סקר נוסף בהצלחה");
   };
 
   const handleEditAudit = (id: number) => {
@@ -180,6 +229,69 @@ const Dashboard = () => {
           </CardContent>
         </Card>
       </main>
+
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent className="sm:max-w-md" dir="rtl">
+          <DialogHeader>
+            <DialogTitle>הוסף סקר חדש</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="name">שם הסקר *</Label>
+              <Input 
+                id="name" 
+                value={newAudit.name} 
+                onChange={(e) => setNewAudit({...newAudit, name: e.target.value})} 
+                placeholder="הזן את שם הסקר"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="status">סטטוס</Label>
+              <Select 
+                value={newAudit.status} 
+                onValueChange={(value) => setNewAudit({...newAudit, status: value})}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="בחר סטטוס" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ממתין">ממתין</SelectItem>
+                  <SelectItem value="בתהליך">בתהליך</SelectItem>
+                  <SelectItem value="הושלם">הושלם</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="date">תאריך</Label>
+              <Input 
+                id="date" 
+                type="date" 
+                value={newAudit.date} 
+                onChange={(e) => setNewAudit({...newAudit, date: e.target.value})} 
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="assignedTo">אחראי *</Label>
+              <Input 
+                id="assignedTo" 
+                value={newAudit.assignedTo} 
+                onChange={(e) => setNewAudit({...newAudit, assignedTo: e.target.value})} 
+                placeholder="הזן את שם האחראי"
+              />
+            </div>
+          </div>
+          <DialogFooter className="sm:justify-start">
+            <Button type="submit" onClick={submitNewAudit}>
+              הוסף סקר
+            </Button>
+            <DialogClose asChild>
+              <Button type="button" variant="outline">
+                ביטול
+              </Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
