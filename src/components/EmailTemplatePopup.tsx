@@ -1,9 +1,8 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Audit } from "@/types/types";
-import { Copy } from "lucide-react";
+import { Copy, Mail } from "lucide-react";
 import { toast } from "sonner";
 
 interface EmailTemplatePopupProps {
@@ -133,6 +132,24 @@ export const EmailTemplatePopup = ({
     toast.success("כל תוכן המייל הועתק ללוח");
   };
 
+  // Send email via Outlook
+  const handleSendEmail = () => {
+    if (!audit.contacts || audit.contacts.length === 0) {
+      toast.error("לא נמצאו אנשי קשר לשליחת המייל");
+      return;
+    }
+
+    // Get recipient email addresses
+    const recipients = audit.contacts.map(contact => contact.email).join(";");
+
+    // Create mailto URL with recipients, subject and body
+    const mailtoUrl = `mailto:${recipients}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+
+    // Open the email client
+    window.open(mailtoUrl, "_blank");
+    toast.success("המייל נפתח ב-Outlook");
+  };
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-3xl" dir="rtl">
@@ -167,10 +184,19 @@ export const EmailTemplatePopup = ({
             </div>
           </div>
           
-          <div className="flex justify-end mt-6">
+          <div className="flex justify-end gap-3 mt-6">
             <Button onClick={handleCopyAll} className="flex items-center gap-2">
               <Copy className="h-4 w-4" />
               העתק הכל ללוח
+            </Button>
+            
+            <Button 
+              onClick={handleSendEmail}
+              variant="default"
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+            >
+              <Mail className="h-4 w-4" />
+              שלח באמצעות Outlook
             </Button>
           </div>
         </div>
