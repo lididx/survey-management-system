@@ -56,7 +56,8 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
           newStatus: "התקבל",
           oldDate: null,
           newDate: null,
-          reason: "יצירת סקר"
+          reason: "יצירת סקר",
+          modifiedBy: user.name // Add user name for initial creation
         }],
         ownerId: user.email
       } as Audit;
@@ -81,8 +82,21 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
       toast.success("סקר עודכן בהצלחה");
       
       // אם הסטטוס שונה ל"בבקרה", שלח הודעה למנהל
-      if (auditData.currentStatus === "בבקרה" && currentAudit.currentStatus !== "בבקרה") {
-        // באפליקציה אמיתית, היינו שולחים מייל אמיתי
+      const updatedAudit = updatedAudits.find(audit => audit.id === currentAudit.id);
+      if (updatedAudit && auditData.currentStatus === "בבקרה" && currentAudit.currentStatus !== "בבקרה") {
+        sendNotificationEmail(
+          "chen@example.com", // החלף בכתובת האימייל האמיתית של חן
+          `סקר חדש לבקרה: ${updatedAudit.name}`,
+          `שלום חן,
+          
+הסקר "${updatedAudit.name}" עבר לסטטוס בקרה ומחכה לבדיקתך.
+
+לצפייה בפרטי הסקר, אנא היכנס/י למערכת.
+
+בברכה,
+מערכת ניהול סקרי אבטחת מידע`
+        );
+        
         toast.info("נשלחה התראה למנהלת על סקר לבקרה", {
           description: `סקר "${auditData.name}" עבר לסטטוס בקרה`
         });
@@ -91,6 +105,19 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
       return updatedAudits.find(audit => audit.id === currentAudit.id) || null;
     }
     return null;
+  };
+  
+  // פונקציה לשליחת התראה למייל (דמה)
+  const sendNotificationEmail = (to: string, subject: string, body: string) => {
+    // ברירת מחדל: הצג בקונסולה (בסביבת פיתוח)
+    console.log(`Email notification:
+      To: ${to}
+      Subject: ${subject}
+      Body: ${body}
+    `);
+    
+    // בסביבת ייצור, היינו משתמשים בשירות אימייל אמיתי
+    // למשל SendGrid, AWS SES וכו'
   };
 
   return {

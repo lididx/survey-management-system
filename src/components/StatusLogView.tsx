@@ -68,6 +68,7 @@ export const StatusLogView = ({ statusLog }: StatusLogViewProps) => {
               <TableHead>שינוי סטטוס</TableHead>
               <TableHead>שינוי תאריך</TableHead>
               <TableHead>סיבה</TableHead>
+              <TableHead>בוצע ע"י</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -99,6 +100,7 @@ export const StatusLogView = ({ statusLog }: StatusLogViewProps) => {
                   )}
                 </TableCell>
                 <TableCell>{change.reason}</TableCell>
+                <TableCell>{change.modifiedBy || "-"}</TableCell>
               </TableRow>
             ))}
           </TableBody>

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ContactForm } from "@/components/ContactForm";
-import { Audit, StatusType, Contact, StatusChange } from "@/types/types";
+import { Audit, StatusType, Contact, StatusChange, User } from "@/types/types";
 import { toast } from "sonner";
 
 interface AuditFormProps {
@@ -14,6 +13,7 @@ interface AuditFormProps {
   onSubmit: (audit: Partial<Audit>) => void;
   onCancel: () => void;
   mode: "create" | "edit";
+  currentUser: User | null; // Added current user prop
 }
 
 const statusOptions: StatusType[] = [
@@ -26,7 +26,7 @@ const statusOptions: StatusType[] = [
   "הסתיים"
 ];
 
-export const AuditForm = ({ audit, onSubmit, onCancel, mode }: AuditFormProps) => {
+export const AuditForm = ({ audit, onSubmit, onCancel, mode, currentUser }: AuditFormProps) => {
   const [formData, setFormData] = useState<Partial<Audit>>({
     name: "",
     description: "",
@@ -66,6 +66,11 @@ export const AuditForm = ({ audit, onSubmit, onCancel, mode }: AuditFormProps) =
       toast.error("יש להוסיף לפחות איש קשר אחד");
       return;
     }
+
+    if (!currentUser) {
+      toast.error("משתמש לא מחובר");
+      return;
+    }
     
     if (mode === "edit") {
       // Check if status was changed
@@ -75,7 +80,7 @@ export const AuditForm = ({ audit, onSubmit, onCancel, mode }: AuditFormProps) =
           return;
         }
         
-        // Add status change log
+        // Add status change log with user who made the change
         const statusChange: StatusChange = {
           id: crypto.randomUUID(),
           timestamp: new Date(),
@@ -83,7 +88,8 @@ export const AuditForm = ({ audit, onSubmit, onCancel, mode }: AuditFormProps) =
           newStatus: formData.currentStatus as StatusType,
           oldDate: null,
           newDate: null,
-          reason: statusReason
+          reason: statusReason,
+          modifiedBy: currentUser.name // Add user name who modified the status
         };
         
         formData.statusLog = [...(formData.statusLog || []), statusChange];
@@ -103,7 +109,7 @@ export const AuditForm = ({ audit, onSubmit, onCancel, mode }: AuditFormProps) =
           return;
         }
         
-        // Add date change log
+        // Add date change log with user who made the change
         const dateChange: StatusChange = {
           id: crypto.randomUUID(),
           timestamp: new Date(),
@@ -111,7 +117,8 @@ export const AuditForm = ({ audit, onSubmit, onCancel, mode }: AuditFormProps) =
           newStatus: null as any,
           oldDate: initialDate,
           newDate: formData.plannedMeetingDate,
-          reason: dateReason
+          reason: dateReason,
+          modifiedBy: currentUser.name // Add user name who modified the date
         };
         
         formData.statusLog = [...(formData.statusLog || []), dateChange];
@@ -129,7 +136,8 @@ export const AuditForm = ({ audit, onSubmit, onCancel, mode }: AuditFormProps) =
         newStatus: "התקבל",
         oldDate: null,
         newDate: null,
-        reason: "יצירת סקר"
+        reason: "יצירת סקר",
+        modifiedBy: currentUser.name // Add user name for initial creation
       }];
     }
     

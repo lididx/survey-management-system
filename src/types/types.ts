@@ -1,4 +1,3 @@
-
 export type StatusType = 
   | "התקבל"
   | "נשלח מייל תיאום למנהל מערכת"
@@ -24,6 +23,7 @@ export interface StatusChange {
   oldDate: Date | null;
   newDate: Date | null;
   reason: string;
+  modifiedBy: string; // Added field to track who made the change
 }
 
 export interface Audit {
