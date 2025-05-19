@@ -31,9 +31,12 @@ export const createAudit = (
 
   const newAudits = [...audits, newAudit];
   
+  // Always save both locally and globally
   if (user.email) {
-    saveAuditsToStorage(user.email, newAudits.filter(audit => audit.ownerId === user.email));
-    // Also save to global storage
+    if (user.role === "בודק") {
+      saveAuditsToStorage(user.email, newAudits.filter(audit => audit.ownerId === user.email));
+    }
+    // Always update global storage
     saveAuditsToStorage(null, newAudits);
   }
   
@@ -58,8 +61,13 @@ export const editAudit = (
     audit.id === currentAudit.id ? { ...audit, ...auditData } : audit
   );
   
+  // Save both to user-specific and global storage
   if (user?.email) {
-    saveAuditsToStorage(user.email, updatedAudits);
+    if (user.role === "בודק") {
+      saveAuditsToStorage(user.email, updatedAudits.filter(audit => audit.ownerId === user.email));
+    }
+    // Always update global storage
+    saveAuditsToStorage(null, updatedAudits);
   }
   
   toast.success("סקר עודכן בהצלחה");
@@ -147,7 +155,7 @@ export const updateAuditStatus = (
     if (user.role === "בודק") {
       saveAuditsToStorage(user.email, updatedAudits.filter(audit => audit.ownerId === user.email));
     }
-    // For global storage or manager
+    // Always update global storage
     saveAuditsToStorage(null, updatedAudits);
   }
   
@@ -196,7 +204,8 @@ export const deleteAudit = (
   if (user?.email) {
     // For regular users, save only their audits
     if (user.role === "בודק") {
-      saveAuditsToStorage(user.email, updatedAudits.filter(audit => audit.ownerId === user.email));
+      const userAudits = updatedAudits.filter(audit => audit.ownerId === user.email);
+      saveAuditsToStorage(user.email, userAudits);
     }
     // Always update global storage
     saveAuditsToStorage(null, updatedAudits);

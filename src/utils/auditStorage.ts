@@ -153,6 +153,21 @@ export const getStorageKey = (userEmail: string | null) => {
   return userEmail ? `audits_${userEmail}` : GLOBAL_AUDITS_KEY;
 };
 
+// Key for tracking if a user has been initialized with sample data
+export const getUserInitKey = (userEmail: string) => {
+  return `user_initialized_${userEmail}`;
+};
+
+// Function to check if a user has been initialized
+export const isUserInitialized = (userEmail: string): boolean => {
+  return localStorage.getItem(getUserInitKey(userEmail)) === 'true';
+};
+
+// Function to mark a user as initialized
+export const markUserAsInitialized = (userEmail: string): void => {
+  localStorage.setItem(getUserInitKey(userEmail), 'true');
+};
+
 export const getStoredAudits = (userEmail: string | null): Audit[] => {
   try {
     // For managers (userEmail is null), get all audits

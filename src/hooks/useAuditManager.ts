@@ -1,7 +1,13 @@
 
 import { useState, useEffect } from 'react';
 import { Audit, User, StatusType } from '@/types/types';
-import { getStoredAudits, sampleAudits, saveAuditsToStorage } from '@/utils/auditStorage';
+import { 
+  getStoredAudits, 
+  sampleAudits, 
+  saveAuditsToStorage, 
+  isUserInitialized, 
+  markUserAsInitialized 
+} from '@/utils/auditStorage';
 import { createAudit, editAudit, deleteAudit, updateAuditStatus } from '@/utils/auditOperations';
 import { sendNotificationEmail } from '@/utils/notificationUtils';
 
@@ -17,14 +23,20 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
     
     const storedAudits = getStoredAudits(user.email);
     
-    // For first time users, seed with sample data
-    if (storedAudits.length === 0 && user.role === "בודק") {
+    // Only seed with sample data if:
+    // 1. User is an auditor ("בודק")
+    // 2. There are no stored audits for this user
+    // 3. User has not been initialized before
+    if (storedAudits.length === 0 && user.role === "בודק" && !isUserInitialized(user.email)) {
       // Update the sample audits to have the current user as owner
       const userSampleAudits = sampleAudits.map(audit => ({
         ...audit,
         ownerId: user.email,
         ownerName: user.name // Add owner name to sample audits
       }));
+      
+      // Mark user as initialized to prevent reloading sample data on next login
+      markUserAsInitialized(user.email);
       
       // Save these to localStorage with proper keys
       saveAuditsToStorage(user.email, userSampleAudits);
@@ -69,6 +81,16 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
 
   const handleDeleteAudit = (id: string, canDelete: (auditOwnerId: string) => boolean) => {
     const updatedAudits = deleteAudit(id, audits, user, canDelete);
+    
+    // If all user audits were deleted, make sure to update global storage too
+    if (user?.email && user.role === "בודק") {
+      const userAudits = updatedAudits.filter(audit => audit.ownerId === user.email);
+      if (userAudits.length === 0) {
+        // Save empty array to user's storage to prevent reloading sample data
+        saveAuditsToStorage(user.email, []);
+      }
+    }
+    
     setAudits(updatedAudits);
   };
   

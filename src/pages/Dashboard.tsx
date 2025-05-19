@@ -23,7 +23,6 @@ import { useAuthManager } from "@/hooks/useAuthManager";
 import { useAuditPermissions } from "@/hooks/useAuditPermissions";
 import { useAuditManager } from "@/hooks/useAuditManager";
 import { useStaleAudits } from "@/hooks/useStaleAudits";
-import { sampleAudits } from "@/utils/auditStorage";
 
 const Dashboard = () => {
   const { user, handleLogout } = useAuthManager();
@@ -32,6 +31,7 @@ const Dashboard = () => {
   const [showEmailTemplate, setShowEmailTemplate] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   
+  // Pass an empty array instead of sampleAudits to prevent default loading
   const { 
     audits,
     filteredAudits,
@@ -46,7 +46,7 @@ const Dashboard = () => {
     handleDeleteAudit,
     handleStatusChange,
     handleAuditSubmit
-  } = useAuditManager(sampleAudits, user);
+  } = useAuditManager([], user);
   
   const { canDelete, canEdit } = useAuditPermissions(user);
   
