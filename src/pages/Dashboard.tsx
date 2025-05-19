@@ -23,6 +23,7 @@ import { useAuthManager } from "@/hooks/useAuthManager";
 import { useAuditPermissions } from "@/hooks/useAuditPermissions";
 import { useAuditManager } from "@/hooks/useAuditManager";
 import { useStaleAudits } from "@/hooks/useStaleAudits";
+import { sampleAudits } from "@/utils/auditStorage";
 
 const Dashboard = () => {
   const { user, handleLogout } = useAuthManager();
@@ -46,7 +47,7 @@ const Dashboard = () => {
     handleEditAudit,
     handleDeleteAudit,
     handleAuditSubmit
-  } = useAuditManager([], user); // Pass empty array instead of sampleAudits
+  } = useAuditManager(sampleAudits, user); // Use sampleAudits from imported utility
   
   const { canDelete, canEdit } = useAuditPermissions(user);
   
