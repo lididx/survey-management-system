@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle } from "lucide-react";
+import { PlusCircle, Search } from "lucide-react";
 import { 
   Dialog, 
   DialogContent,
@@ -11,6 +11,7 @@ import {
   DialogTitle
 } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Input } from "@/components/ui/input";
 
 import { Audit } from "@/types/types";
 import { AuditForm } from "@/components/AuditForm";
@@ -168,6 +169,7 @@ const Dashboard = () => {
   const [showEmailTemplate, setShowEmailTemplate] = useState(false);
   const [showRecipientInput, setShowRecipientInput] = useState(false);
   const [recipientCount, setRecipientCount] = useState<number>(1);
+  const [searchQuery, setSearchQuery] = useState("");
   
   const { 
     filteredAudits,
@@ -188,6 +190,14 @@ const Dashboard = () => {
   // Monitor stale audits
   useStaleAudits(sampleAudits);
   
+  // Filter audits based on search query
+  const displayedAudits = searchQuery
+    ? filteredAudits.filter(audit => 
+        audit.name.includes(searchQuery) || 
+        audit.currentStatus.includes(searchQuery)
+      )
+    : filteredAudits;
+
   const handleAuditFormSubmit = (auditData: Partial<Audit>) => {
     const result = handleAuditSubmit(auditData, canEdit);
     
@@ -220,17 +230,34 @@ const Dashboard = () => {
       <DashboardHeader user={user} onLogout={handleLogout} />
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex justify-between items-center flex-wrap gap-4 mb-6">
           <h2 className="text-xl font-semibold">סקרי אבטחת מידע</h2>
-          {user.role === "בודק" && (
-            <Button onClick={() => {
-              handleCreateAudit();
-              setIsFormOpen(true);
-            }} className="flex items-center gap-2">
-              <PlusCircle className="h-4 w-4" />
-              הוסף סקר חדש
-            </Button>
-          )}
+          
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <Search className="absolute right-3 top-2.5 h-4 w-4 text-gray-500" />
+              <Input
+                type="text"
+                placeholder="חיפוש לפי שם או סטטוס..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pr-10 w-[250px]"
+              />
+            </div>
+            
+            {user.role === "בודק" && (
+              <Button 
+                onClick={() => {
+                  handleCreateAudit();
+                  setIsFormOpen(true);
+                }} 
+                className="bg-blue-800 text-white px-4 py-2 rounded-2xl hover:bg-blue-700 flex items-center gap-2"
+              >
+                <PlusCircle className="h-4 w-4" />
+                הוסף סקר חדש
+              </Button>
+            )}
+          </div>
         </div>
         
         <StatusCards 
@@ -239,13 +266,13 @@ const Dashboard = () => {
           userEmail={user.email}
         />
 
-        <Card>
+        <Card className="mt-8">
           <CardHeader>
             <CardTitle>רשימת סקרים</CardTitle>
           </CardHeader>
           <CardContent>
             <AuditsTable 
-              audits={filteredAudits}
+              audits={displayedAudits}
               userRole={user.role}
               canEdit={canEdit}
               canDelete={canDelete}

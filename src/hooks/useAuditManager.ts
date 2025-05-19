@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Audit, User } from '@/types/types';
@@ -80,7 +79,7 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
       setAudits(updatedAudits);
       toast.success("סקר עודכן בהצלחה");
       
-      // אם הסטטוס שונה ל"בבקרה", שלח הודעה למנהל
+      // אם הסטטוס שונה ל"בבקרה", שלח הודעה למנהלת
       const updatedAudit = updatedAudits.find(audit => audit.id === currentAudit.id);
       if (updatedAudit && auditData.currentStatus === "בבקרה" && currentAudit.currentStatus !== "בבקרה") {
         sendNotificationEmail(
@@ -101,6 +100,9 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
         });
       }
       
+      // Check for stalled audits that need reminders
+      checkForStalledAudits(updatedAudits);
+      
       return updatedAudits.find(audit => audit.id === currentAudit.id) || null;
     }
     return null;
@@ -119,6 +121,70 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
     // למשל SendGrid, AWS SES וכו'
   };
 
+  // פונקציה לבדיקת סקרים שתקועים במשך זמן רב
+  const checkForStalledAudits = (currentAudits: Audit[]) => {
+    const stalledStatuses = [
+      "נשלח מייל תיאום למנהל מערכת",
+      "שאלות השלמה מול מנהל מערכת"
+    ];
+    
+    // Get current date and date 7 days ago
+    const now = new Date();
+    const sevenDaysAgo = new Date(now);
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    
+    // Filter audits by status and last update time
+    const stalledAudits = currentAudits.filter(audit => {
+      if (!stalledStatuses.includes(audit.currentStatus)) {
+        return false;
+      }
+      
+      // Find the latest status update
+      const latestStatusUpdate = audit.statusLog
+        .filter(log => log.newStatus === audit.currentStatus)
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+      
+      if (!latestStatusUpdate) return false;
+      
+      // Check if the status has been unchanged for more than 7 days
+      const logDate = new Date(latestStatusUpdate.timestamp);
+      return logDate < sevenDaysAgo;
+    });
+    
+    // Send reminder email for each stalled audit
+    stalledAudits.forEach(audit => {
+      // Send to audit owner
+      sendNotificationEmail(
+        audit.ownerId,
+        `תזכורת: סקר ${audit.name} בסטטוס ${audit.currentStatus}`,
+        `שלום,
+        
+זוהי תזכורת אוטומטית לגבי הסקר "${audit.name}" שנמצא בסטטוס "${audit.currentStatus}" כבר למעלה מ-7 ימים.
+אנא בדקו את מצב הסקר ועדכנו את הסטטוס במערכת.
+
+בברכה,
+מערכת ניהול סקרי אבטחת מידע`
+      );
+      
+      // Send to manager as well
+      sendNotificationEmail(
+        "chen@example.com",
+        `תזכורת: סקר ${audit.name} בסטטוס ${audit.currentStatus}`,
+        `שלום חן,
+        
+זוהי תזכורת אוטומטית לגבי הסקר "${audit.name}" שנמצא בסטטוס "${audit.currentStatus}" כבר למעלה מ-7 ימים.
+הסקר שייך ל${audit.ownerId}.
+
+בברכה,
+מערכת ניהול סקרי אבטחת מידע`
+      );
+      
+      toast.info(`נשלחה תזכורת אוטומטית לסקר "${audit.name}"`, {
+        description: `הסקר בסטטוס "${audit.currentStatus}" כבר למעלה מ-7 ימים`
+      });
+    });
+  };
+
   return {
     audits,
     filteredAudits,
@@ -131,6 +197,7 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
     handleCreateAudit,
     handleEditAudit,
     handleDeleteAudit,
-    handleAuditSubmit
+    handleAuditSubmit,
+    sendNotificationEmail
   };
 };

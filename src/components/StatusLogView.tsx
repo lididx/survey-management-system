@@ -1,4 +1,5 @@
 
+import { Fragment } from "react";
 import {
   Table,
   TableBody,
@@ -29,6 +30,10 @@ export const StatusLogView = ({ statusLog }: StatusLogViewProps) => {
     if (!date) return "-";
     return new Date(date).toLocaleDateString("he-IL");
   };
+
+  const formatTime = (date: Date) => {
+    return new Date(date).toLocaleTimeString("he-IL", {hour: '2-digit', minute:'2-digit'});
+  };
   
   const getStatusBadge = (status: string | null) => {
     if (!status) return null;
@@ -48,6 +53,12 @@ export const StatusLogView = ({ statusLog }: StatusLogViewProps) => {
       case "הסתיים":
         variant = "secondary";
         break;
+      case "שאלות השלמה מול מנהל מערכת":
+        variant = "warning";
+        break;
+      case "נשלח מייל תיאום למנהל מערכת":
+        variant = "outline";
+        break;
       default:
         variant = "outline";
     }
@@ -56,14 +67,14 @@ export const StatusLogView = ({ statusLog }: StatusLogViewProps) => {
   };
 
   return (
-    <Card>
+    <Card className="border border-gray-200">
       <CardHeader className="pb-2">
         <CardTitle className="text-lg">היסטוריית שינויים</CardTitle>
       </CardHeader>
       <CardContent>
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className="text-gray-600">
               <TableHead>תאריך</TableHead>
               <TableHead>שינוי סטטוס</TableHead>
               <TableHead>שינוי תאריך</TableHead>
@@ -73,34 +84,34 @@ export const StatusLogView = ({ statusLog }: StatusLogViewProps) => {
           </TableHeader>
           <TableBody>
             {sortedLog.map((change) => (
-              <TableRow key={change.id}>
-                <TableCell className="whitespace-nowrap">
-                  {new Date(change.timestamp).toLocaleDateString("he-IL")}
-                  {" "}
-                  {new Date(change.timestamp).toLocaleTimeString("he-IL", {hour: '2-digit', minute:'2-digit'})}
+              <TableRow key={change.id} className="border-b border-gray-200">
+                <TableCell className="whitespace-nowrap text-xs text-gray-500">
+                  {formatDate(change.timestamp)}{" "}
+                  {formatTime(change.timestamp)}
                 </TableCell>
                 <TableCell>
-                  {change.oldStatus && change.newStatus && (
-                    <>
-                      <div className="flex items-center gap-2">
-                        {getStatusBadge(change.oldStatus)}
-                        <span className="mx-2">➞</span>
-                        {getStatusBadge(change.newStatus)}
-                      </div>
-                    </>
-                  )}
+                  {change.oldStatus || change.newStatus ? (
+                    <div className="flex items-center gap-2 text-sm">
+                      {change.oldStatus ? 
+                        getStatusBadge(change.oldStatus) : 
+                        <span className="text-gray-400">-</span>
+                      }
+                      <span className="mx-2">➞</span>
+                      {getStatusBadge(change.newStatus)}
+                    </div>
+                  ) : null}
                 </TableCell>
                 <TableCell>
                   {(change.oldDate || change.newDate) && (
-                    <>
+                    <div className="text-sm">
                       <span className="text-gray-600">{formatDate(change.oldDate)}</span>
                       <span className="mx-2">➞</span>
                       <span className="font-medium">{formatDate(change.newDate)}</span>
-                    </>
+                    </div>
                   )}
                 </TableCell>
-                <TableCell>{change.reason}</TableCell>
-                <TableCell>{change.modifiedBy || "-"}</TableCell>
+                <TableCell className="text-sm text-gray-700">{change.reason}</TableCell>
+                <TableCell className="text-sm">{change.modifiedBy || "-"}</TableCell>
               </TableRow>
             ))}
           </TableBody>

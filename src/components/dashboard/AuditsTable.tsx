@@ -10,9 +10,21 @@ import {
   TableCell
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { X, Edit, ChevronDown, ChevronUp, Mail } from "lucide-react";
+import { 
+  Pencil, 
+  ChevronDown, 
+  ChevronUp, 
+  Mail,
+  Trash2 
+} from "lucide-react";
 import { Audit, StatusType } from "@/types/types";
 import { StatusLogView } from "@/components/StatusLogView";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 interface AuditsTableProps {
   audits: Audit[];
@@ -55,8 +67,10 @@ export const AuditsTable = ({
       case "התקבל":
         variant = "secondary";
         break;
-      case "בכתיבה":
       case "נקבע":
+        variant = "default";
+        break;
+      case "בכתיבה":
         variant = "default";
         break;
       case "בבקרה":
@@ -64,6 +78,12 @@ export const AuditsTable = ({
         break;
       case "הסתיים":
         variant = "secondary";
+        break;
+      case "שאלות השלמה מול מנהל מערכת":
+        variant = "warning";
+        break;
+      case "נשלח מייל תיאום למנהל מערכת":
+        variant = "outline";
         break;
       default:
         variant = "outline";
@@ -73,78 +93,88 @@ export const AuditsTable = ({
   };
 
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>שם הסקר</TableHead>
-          <TableHead>סטטוס</TableHead>
-          <TableHead>תאריך פגישה</TableHead>
-          <TableHead>אנשי קשר</TableHead>
-          <TableHead>תאריך קבלה</TableHead>
-          {userRole === "מנהלת" && <TableHead>בעלים</TableHead>}
-          <TableHead>פעולות</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {audits.length > 0 ? (
-          audits.map((audit) => (
-            <>
-              <TableRow key={audit.id}>
-                <TableCell className="font-medium">{audit.name}</TableCell>
-                <TableCell>
-                  {getStatusBadge(audit.currentStatus)}
-                </TableCell>
-                <TableCell>
-                  {audit.plannedMeetingDate ? formatDate(audit.plannedMeetingDate) : "לא נקבע"}
-                </TableCell>
-                <TableCell>{audit.contacts.length}</TableCell>
-                <TableCell>{formatDate(audit.receivedDate)}</TableCell>
-                {userRole === "מנהלת" && <TableCell>{audit.ownerId.split('@')[0]}</TableCell>}
-                <TableCell>
-                  <div className="flex gap-2">
-                    {canEdit(audit.ownerId) && (
-                      <Button variant="outline" size="sm" onClick={() => onEditAudit(audit)}>
-                        <Edit className="h-4 w-4" />
+    <div className="overflow-x-auto">
+      <Table className="min-w-full divide-y divide-gray-200">
+        <TableHeader>
+          <TableRow className="bg-gray-50 text-gray-700">
+            <TableHead className="p-4 font-medium">שם הסקר</TableHead>
+            <TableHead className="p-4 font-medium">סטטוס</TableHead>
+            <TableHead className="p-4 font-medium">תאריך פגישה</TableHead>
+            <TableHead className="p-4 font-medium">אנשי קשר</TableHead>
+            <TableHead className="p-4 font-medium">תאריך קבלה</TableHead>
+            {userRole === "מנהלת" && <TableHead className="p-4 font-medium">בעלים</TableHead>}
+            <TableHead className="p-4 font-medium">פעולות</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {audits.length > 0 ? (
+            audits.map((audit) => (
+              <React.Fragment key={audit.id}>
+                <TableRow className="hover:bg-gray-100 transition-colors">
+                  <TableCell className="p-4 font-medium">{audit.name}</TableCell>
+                  <TableCell className="p-4">
+                    {getStatusBadge(audit.currentStatus)}
+                  </TableCell>
+                  <TableCell className="p-4">
+                    {audit.plannedMeetingDate ? formatDate(audit.plannedMeetingDate) : "לא נקבע"}
+                  </TableCell>
+                  <TableCell className="p-4">{audit.contacts?.length || 0}</TableCell>
+                  <TableCell className="p-4">{formatDate(audit.receivedDate)}</TableCell>
+                  {userRole === "מנהלת" && <TableCell className="p-4">{audit.ownerId.split('@')[0]}</TableCell>}
+                  <TableCell className="p-4">
+                    <div className="flex gap-2">
+                      {canEdit(audit.ownerId) && (
+                        <Button variant="outline" size="sm" onClick={() => onEditAudit(audit)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      )}
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => onEmailClick(audit)}
+                      >
+                        <Mail className="h-4 w-4" />
                       </Button>
-                    )}
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => onEmailClick(audit)}
-                    >
-                      <Mail className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => handleExpandLog(audit.id)}>
-                      {expandedAuditId === audit.id ? 
-                        <ChevronUp className="h-4 w-4" /> : 
-                        <ChevronDown className="h-4 w-4" />
-                      }
-                    </Button>
-                    {canDelete(audit.ownerId) && (
-                      <Button variant="destructive" size="sm" onClick={() => onDeleteAudit(audit.id)}>
-                        <X className="h-4 w-4" />
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => handleExpandLog(audit.id)}
+                      >
+                        {expandedAuditId === audit.id ? 
+                          <ChevronUp className="h-4 w-4" /> : 
+                          <ChevronDown className="h-4 w-4" />
+                        }
                       </Button>
-                    )}
-                  </div>
-                </TableCell>
-              </TableRow>
-              {expandedAuditId === audit.id && (
-                <TableRow>
-                  <TableCell colSpan={userRole === "מנהלת" ? 7 : 6} className="p-4 bg-gray-50">
-                    <StatusLogView statusLog={audit.statusLog} />
+                      {canDelete(audit.ownerId) && (
+                        <Button 
+                          variant="destructive" 
+                          size="sm" 
+                          onClick={() => onDeleteAudit(audit.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
-              )}
-            </>
-          ))
-        ) : (
-          <TableRow>
-            <TableCell colSpan={userRole === "מנהלת" ? 7 : 6} className="text-center py-4">
-              לא נמצאו סקרים
-            </TableCell>
-          </TableRow>
-        )}
-      </TableBody>
-    </Table>
+                {expandedAuditId === audit.id && (
+                  <TableRow>
+                    <TableCell colSpan={userRole === "מנהלת" ? 7 : 6} className="p-4 bg-gray-50">
+                      <StatusLogView statusLog={audit.statusLog} />
+                    </TableCell>
+                  </TableRow>
+                )}
+              </React.Fragment>
+            ))
+          ) : (
+            <TableRow>
+              <TableCell colSpan={userRole === "מנהלת" ? 7 : 6} className="text-center py-4">
+                לא נמצאו סקרים
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </div>
   );
 };
