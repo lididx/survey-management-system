@@ -16,8 +16,9 @@ interface ContactFormProps {
 export const ContactForm = ({ contacts, setContacts }: ContactFormProps) => {
   const [newContact, setNewContact] = useState<Contact>({
     id: crypto.randomUUID(),
-    firstName: "", // Changed from fullName to firstName
-    lastName: "", // Added lastName
+    fullName: "", // Add the required fullName property
+    firstName: "",
+    lastName: "",
     role: "",
     email: "",
     phone: "",
@@ -39,11 +40,11 @@ export const ContactForm = ({ contacts, setContacts }: ContactFormProps) => {
       phone?: string;
     } = {};
     
-    if (!newContact.firstName.trim()) {
+    if (!newContact.firstName?.trim()) {
       newErrors.firstName = "שם פרטי הוא שדה חובה";
     }
     
-    if (!newContact.lastName.trim()) {
+    if (!newContact.lastName?.trim()) {
       newErrors.lastName = "שם משפחה הוא שדה חובה";
     }
     
@@ -62,15 +63,16 @@ export const ContactForm = ({ contacts, setContacts }: ContactFormProps) => {
       return;
     }
     
-    // Combine first and last name for fullName to maintain compatibility
+    // Set the fullName based on firstName and lastName
     const fullContact = {
       ...newContact,
-      fullName: `${newContact.firstName} ${newContact.lastName}`
+      fullName: `${newContact.firstName || ''} ${newContact.lastName || ''}`.trim()
     };
     
     setContacts([...contacts, fullContact]);
     setNewContact({
       id: crypto.randomUUID(),
+      fullName: "", // Include the required fullName property
       firstName: "",
       lastName: "",
       role: "",
@@ -88,13 +90,22 @@ export const ContactForm = ({ contacts, setContacts }: ContactFormProps) => {
     toast.success("איש קשר הוסר בהצלחה");
   };
 
-  // Extract first and last name for display
-  const getNameParts = (fullName: string) => {
-    const parts = fullName.split(' ');
-    return {
-      firstName: parts[0] || '',
-      lastName: parts.slice(1).join(' ') || ''
-    };
+  // Handle firstName change and update fullName
+  const handleFirstNameChange = (value: string) => {
+    setNewContact(prev => ({
+      ...prev,
+      firstName: value,
+      fullName: `${value} ${prev.lastName || ''}`.trim()
+    }));
+  };
+
+  // Handle lastName change and update fullName
+  const handleLastNameChange = (value: string) => {
+    setNewContact(prev => ({
+      ...prev,
+      lastName: value,
+      fullName: `${prev.firstName || ''} ${value}`.trim()
+    }));
   };
 
   return (
@@ -105,9 +116,8 @@ export const ContactForm = ({ contacts, setContacts }: ContactFormProps) => {
         {contacts.length > 0 && (
           <div className="space-y-3 mb-4">
             {contacts.map((contact) => {
-              const { firstName, lastName } = contact.firstName 
-                ? { firstName: contact.firstName, lastName: contact.lastName } 
-                : getNameParts(contact.fullName);
+              const firstName = contact.firstName || contact.fullName.split(' ')[0];
+              const lastName = contact.lastName || contact.fullName.split(' ').slice(1).join(' ');
               
               return (
                 <div 
@@ -139,8 +149,8 @@ export const ContactForm = ({ contacts, setContacts }: ContactFormProps) => {
               <Label htmlFor="firstName">שם פרטי *</Label>
               <Input
                 id="firstName"
-                value={newContact.firstName}
-                onChange={(e) => setNewContact({...newContact, firstName: e.target.value})}
+                value={newContact.firstName || ''}
+                onChange={(e) => handleFirstNameChange(e.target.value)}
                 placeholder="שם פרטי"
                 className={errors.firstName ? "border-red-500" : ""}
               />
@@ -152,8 +162,8 @@ export const ContactForm = ({ contacts, setContacts }: ContactFormProps) => {
               <Label htmlFor="lastName">שם משפחה *</Label>
               <Input
                 id="lastName"
-                value={newContact.lastName}
-                onChange={(e) => setNewContact({...newContact, lastName: e.target.value})}
+                value={newContact.lastName || ''}
+                onChange={(e) => handleLastNameChange(e.target.value)}
                 placeholder="שם משפחה"
                 className={errors.lastName ? "border-red-500" : ""}
               />
