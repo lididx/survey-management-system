@@ -94,7 +94,9 @@ export const AuditForm = ({ audit, onSubmit, onCancel, mode }: AuditFormProps) =
         (initialDate !== null && formData.plannedMeetingDate === null) || 
         (initialDate === null && formData.plannedMeetingDate !== null) ||
         (initialDate && formData.plannedMeetingDate && 
-          initialDate.getTime() !== new Date(formData.plannedMeetingDate).getTime())
+          initialDate.getTime() !== (formData.plannedMeetingDate instanceof Date ? 
+            formData.plannedMeetingDate.getTime() : 
+            new Date(formData.plannedMeetingDate).getTime()))
       ) {
         if (!dateReason) {
           toast.error("יש להזין סיבה לשינוי תאריך");
@@ -212,7 +214,11 @@ export const AuditForm = ({ audit, onSubmit, onCancel, mode }: AuditFormProps) =
                 <Input
                   id="meetingDate"
                   type="date"
-                  value={formData.plannedMeetingDate ? new Date(formData.plannedMeetingDate).toISOString().split('T')[0] : ""}
+                  value={formData.plannedMeetingDate ? 
+                    (formData.plannedMeetingDate instanceof Date ? 
+                      formData.plannedMeetingDate.toISOString().split('T')[0] : 
+                      new Date(formData.plannedMeetingDate).toISOString().split('T')[0]) : 
+                    ""}
                   onChange={(e) => {
                     const value = e.target.value;
                     handleInputChange("plannedMeetingDate", value ? new Date(value) : null);
