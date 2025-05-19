@@ -38,9 +38,11 @@ export interface Audit {
   ownerId: string;
 }
 
+export type UserRole = "בודק" | "מנהלת";
+
 export interface User {
-  id: string;
+  id?: string;
   name: string;
   email: string;
-  role: "בודק" | "מנהלת";
+  role: UserRole;
 }

@@ -22,13 +22,13 @@ import {
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 
-import { Audit, StatusType, Contact, User } from "@/types/types";
+import { Audit, StatusType, Contact, User, UserRole } from "@/types/types";
 import { AuditForm } from "@/components/AuditForm";
 import { StatusLogView } from "@/components/StatusLogView";
 import { EmailTemplatePopup } from "@/components/EmailTemplatePopup";
 import { RecipientCountInput } from "@/components/RecipientCountInput";
 
-// Initial sample data
+// נתונים לדוגמה
 const sampleAudits: Audit[] = [
   {
     id: "1",
@@ -78,7 +78,7 @@ const sampleAudits: Audit[] = [
         reason: "הפגישה הסתיימה, התחלת כתיבת הסקר"
       }
     ],
-    ownerId: "user1"
+    ownerId: "lidor@example.com"
   },
   {
     id: "2",
@@ -111,7 +111,7 @@ const sampleAudits: Audit[] = [
         reason: "הסקר הסתיים מכיוון שהוחלט לדחות את הפרויקט"
       }
     ],
-    ownerId: "user1"
+    ownerId: "lidor@example.com"
   },
   {
     id: "3",
@@ -152,15 +152,8 @@ const sampleAudits: Audit[] = [
         reason: "התקבל אישור לפגישה"
       }
     ],
-    ownerId: "user2"
+    ownerId: "moran@example.com"
   }
-];
-
-// Mock user data
-const mockUsers: User[] = [
-  { id: "user1", name: "אורי כהן", email: "uri@example.com", role: "בודק" },
-  { id: "user2", name: "מורן לוי", email: "moran@example.com", role: "בודק" },
-  { id: "user3", name: "חן ישראלי", email: "chen@example.com", role: "מנהלת" }
 ];
 
 const Dashboard = () => {
@@ -179,70 +172,95 @@ const Dashboard = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check if user is logged in
+    // בדיקה אם המשתמש מחובר
     const userData = localStorage.getItem("user");
     if (!userData) {
       navigate("/");
       return;
     }
     
-    const parsedUser = JSON.parse(userData);
-    // Find the full user data from mockUsers
-    const fullUser = mockUsers.find(u => u.id === parsedUser.id) || {
-      ...parsedUser,
-      role: "בודק" // Default role if not found
-    };
-    
-    setUser(fullUser);
-    
-    // Setup notification check timer for audits that haven't changed status for 7+ days
-    const checkStaleAudits = () => {
-      const staleDays = 7; // 7 days threshold
-      const now = new Date();
-      const staleThreshold = new Date(now.setDate(now.getDate() - staleDays));
+    try {
+      const parsedUser = JSON.parse(userData);
+      if (!parsedUser.email || !parsedUser.role) {
+        throw new Error("נתוני משתמש חסרים");
+      }
       
-      audits.forEach(audit => {
-        const statusLog = audit.statusLog;
-        if (!statusLog || statusLog.length === 0) return;
+      setUser(parsedUser);
+      
+      // בדיקה של סקרים שלא התעדכנו מעל 7 ימים
+      const checkStaleAudits = () => {
+        const staleDays = 7; // סף של 7 ימים
+        const now = new Date();
+        const staleThreshold = new Date(now.setDate(now.getDate() - staleDays));
         
-        // Get the most recent status change
-        const latestChange = [...statusLog].sort((a, b) => 
-          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-        )[0];
-        
-        const lastChangeDate = new Date(latestChange.timestamp);
-        
-        // Check if status is one of the ones we need to monitor and has been stale
-        if (
-          (audit.currentStatus === "נשלח מייל תיאום למנהל מערכת" || 
-           audit.currentStatus === "שאלות השלמה מול מנהל מערכת") && 
-          lastChangeDate < staleThreshold
-        ) {
-          // In a real app, we would send an email here
-          // For now, just show a toast notification
-          toast.info(
-            `תזכורת: סטטוס סקר '${audit.name}' לא השתנה`,
-            { 
-              description: `הסטטוס של הסקר '${audit.name}' עדיין ב-${audit.currentStatus} מעל 7 ימים. אנא עדכן/י בהקדם.`,
-              duration: 10000
-            }
-          );
-        }
-      });
-    };
-    
-    // Check once on load and then set up a daily check
-    // In a real app, this would be a scheduled serverside job
-    checkStaleAudits();
-    const interval = setInterval(checkStaleAudits, 24 * 60 * 60 * 1000); // Once per day
-    
-    return () => clearInterval(interval);
+        audits.forEach(audit => {
+          const statusLog = audit.statusLog;
+          if (!statusLog || statusLog.length === 0) return;
+          
+          // שליפת השינוי האחרון בסטטוס
+          const latestChange = [...statusLog].sort((a, b) => 
+            new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+          )[0];
+          
+          const lastChangeDate = new Date(latestChange.timestamp);
+          
+          // בדיקה אם הסטטוס הוא אחד מאלה שצריך לנטר ונשאר קפוא
+          if (
+            (audit.currentStatus === "נשלח מייל תיאום למנהל מערכת" || 
+             audit.currentStatus === "שאלות השלמה מול מנהל מערכת") && 
+            lastChangeDate < staleThreshold
+          ) {
+            // באפליקציה אמיתית, היינו שולחים כאן מייל
+            // בינתיים, נציג הודעת toast
+            toast.info(
+              `תזכורת: סטטוס סקר '${audit.name}' לא השתנה`,
+              { 
+                description: `הסטטוס של הסקר '${audit.name}' עדיין ב-${audit.currentStatus} מעל 7 ימים. אנא עדכן/י בהקדם.`,
+                duration: 10000
+              }
+            );
+          }
+        });
+      };
+      
+      // בדיקה פעם אחת בטעינה ואז הגדרת בדיקה יומית
+      // באפליקציה אמיתית, זה יהיה תהליך מתוזמן בצד השרת
+      checkStaleAudits();
+      const interval = setInterval(checkStaleAudits, 24 * 60 * 60 * 1000); // פעם ביום
+      
+      return () => clearInterval(interval);
+    } catch (error) {
+      toast.error("שגיאה בטעינת נתוני משתמש");
+      localStorage.removeItem("user");
+      navigate("/");
+    }
   }, [navigate, audits]);
 
   const handleLogout = () => {
     localStorage.removeItem("user");
     toast.success("התנתקת בהצלחה");
     navigate("/");
+  };
+
+  // בדיקת הרשאות למחיקה והוספה
+  const canDelete = (auditOwnerId: string) => {
+    if (!user) return false;
+    
+    // מנהלות לא יכולות למחוק רשומות
+    if (user.role === "מנהלת") return false;
+    
+    // בודקים יכולים למחוק רק את הסקרים שלהם
+    return user.role === "בודק" && auditOwnerId === user.email;
+  };
+
+  const canEdit = (auditOwnerId: string) => {
+    if (!user) return false;
+    
+    // מנהלות יכולות לערוך כל רשומה
+    if (user.role === "מנהלת") return true;
+    
+    // בודקים יכולים לערוך רק את הסקרים שלהם
+    return user.role === "בודק" && auditOwnerId === user.email;
   };
 
   const handleCreateAudit = () => {
@@ -266,13 +284,15 @@ const Dashboard = () => {
   };
 
   const handleDeleteAudit = (id: string) => {
-    // Check permissions
-    if (user?.role !== "מנהלת") {
-      const auditToDelete = audits.find(a => a.id === id);
-      if (auditToDelete && auditToDelete.ownerId !== user?.id) {
-        toast.error("אין לך הרשאה למחוק סקר זה");
-        return;
-      }
+    const auditToDelete = audits.find(a => a.id === id);
+    if (!auditToDelete) {
+      toast.error("לא נמצא סקר למחיקה");
+      return;
+    }
+    
+    if (!canDelete(auditToDelete.ownerId)) {
+      toast.error("אין לך הרשאה למחוק סקר זה");
+      return;
     }
     
     const updatedAudits = audits.filter(audit => audit.id !== id);
@@ -281,16 +301,40 @@ const Dashboard = () => {
   };
 
   const handleAuditSubmit = (auditData: Partial<Audit>) => {
-    if (formMode === "create") {
-      const newAudit = auditData as Audit;
+    if (formMode === "create" && user) {
+      const newId = Date.now().toString();
+      const newAudit = {
+        ...auditData,
+        id: newId,
+        receivedDate: new Date(),
+        currentStatus: "התקבל" as StatusType,
+        statusLog: [{
+          id: `log-${newId}`,
+          timestamp: new Date(),
+          oldStatus: null,
+          newStatus: "התקבל" as StatusType,
+          oldDate: null,
+          newDate: null,
+          reason: "יצירת סקר"
+        }],
+        ownerId: user.email
+      } as Audit;
+
       setAudits([...audits, newAudit]);
       setIsFormOpen(false);
       toast.success("סקר חדש נוצר בהצלחה");
       
-      // Show recipient count input after creation
+      // הצגת שדה מספר נמענים לאחר היצירה
       setNewlyCreatedAudit(newAudit);
       setShowRecipientInput(true);
     } else if (formMode === "edit" && currentAudit) {
+      
+      // בדיקת הרשאות עריכה
+      if (!canEdit(currentAudit.ownerId)) {
+        toast.error("אין לך הרשאה לערוך את הסקר הזה");
+        return;
+      }
+      
       const updatedAudits = audits.map(audit => 
         audit.id === currentAudit.id ? { ...audit, ...auditData } : audit
       );
@@ -298,9 +342,9 @@ const Dashboard = () => {
       setIsEditSheetOpen(false);
       toast.success("סקר עודכן בהצלחה");
       
-      // If status changed to "בבקרה", notify manager
+      // אם הסטטוס שונה ל"בבקרה", שלח הודעה למנהל
       if (auditData.currentStatus === "בבקרה" && currentAudit.currentStatus !== "בבקרה") {
-        // In a real app, we would send an actual email here
+        // באפליקציה אמיתית, היינו שולחים מייל אמיתי
         toast.info("נשלחה התראה למנהלת על סקר לבקרה", {
           description: `סקר "${auditData.name}" עבר לסטטוס בקרה`
         });
@@ -315,6 +359,11 @@ const Dashboard = () => {
   };
 
   const getStatusCounts = () => {
+    // מקבלים סקרים בהתאם לתפקיד
+    const filteredAuditsList = user?.role === "מנהלת" 
+    ? audits 
+    : audits.filter(audit => audit.ownerId === user?.email);
+    
     const counts: Record<StatusType, number> = {
       "התקבל": 0,
       "נשלח מייל תיאום למנהל מערכת": 0,
@@ -325,7 +374,7 @@ const Dashboard = () => {
       "הסתיים": 0
     };
     
-    audits.forEach(audit => {
+    filteredAuditsList.forEach(audit => {
       counts[audit.currentStatus] = (counts[audit.currentStatus] || 0) + 1;
     });
     
@@ -369,10 +418,10 @@ const Dashboard = () => {
 
   if (!user) return null;
 
-  // Filter audits based on user role and permissions
+  // סינון הסקרים בהתאם לתפקיד והרשאות המשתמש
   const filteredAudits = user.role === "מנהלת" 
     ? audits 
-    : audits.filter(audit => audit.ownerId === user.id);
+    : audits.filter(audit => audit.ownerId === user.email);
 
   return (
     <div className="min-h-screen bg-gray-100" dir="rtl">
@@ -383,7 +432,9 @@ const Dashboard = () => {
             <div className="text-sm">
               <span className="font-semibold">{user.name}</span>
               <span className="mx-1">|</span>
-              <span className="text-gray-500">{user.role}</span>
+              <Badge variant={user.role === "מנהלת" ? "destructive" : "default"}>
+                {user.role}
+              </Badge>
             </div>
             <Button variant="outline" onClick={handleLogout}>התנתק</Button>
           </div>
@@ -393,10 +444,12 @@ const Dashboard = () => {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-semibold">סקרי אבטחת מידע</h2>
-          <Button onClick={handleCreateAudit} className="flex items-center gap-2">
-            <PlusCircle className="h-4 w-4" />
-            הוסף סקר חדש
-          </Button>
+          {user.role === "בודק" && (
+            <Button onClick={handleCreateAudit} className="flex items-center gap-2">
+              <PlusCircle className="h-4 w-4" />
+              הוסף סקר חדש
+            </Button>
+          )}
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -444,63 +497,68 @@ const Dashboard = () => {
                   <TableHead>תאריך פגישה</TableHead>
                   <TableHead>אנשי קשר</TableHead>
                   <TableHead>תאריך קבלה</TableHead>
+                  {user.role === "מנהלת" && <TableHead>בעלים</TableHead>}
                   <TableHead>פעולות</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredAudits.map((audit) => (
-                  <>
-                    <TableRow key={audit.id}>
-                      <TableCell className="font-medium">{audit.name}</TableCell>
-                      <TableCell>
-                        {getStatusBadge(audit.currentStatus)}
-                      </TableCell>
-                      <TableCell>
-                        {audit.plannedMeetingDate ? formatDate(audit.plannedMeetingDate) : "לא נקבע"}
-                      </TableCell>
-                      <TableCell>{audit.contacts.length}</TableCell>
-                      <TableCell>{formatDate(audit.receivedDate)}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button variant="outline" size="sm" onClick={() => handleEditAudit(audit)}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={() => {
-                              setNewlyCreatedAudit(audit);
-                              setShowRecipientInput(true);
-                            }}
-                          >
-                            <Mail className="h-4 w-4" />
-                          </Button>
-                          <Button variant="outline" size="sm" onClick={() => handleExpandLog(audit.id)}>
-                            {expandedAuditId === audit.id ? 
-                              <ChevronUp className="h-4 w-4" /> : 
-                              <ChevronDown className="h-4 w-4" />
-                            }
-                          </Button>
-                          {(user.role === "מנהלת" || audit.ownerId === user.id) && (
-                            <Button variant="destructive" size="sm" onClick={() => handleDeleteAudit(audit.id)}>
-                              <X className="h-4 w-4" />
+                {filteredAudits.length > 0 ? (
+                  filteredAudits.map((audit) => (
+                    <>
+                      <TableRow key={audit.id}>
+                        <TableCell className="font-medium">{audit.name}</TableCell>
+                        <TableCell>
+                          {getStatusBadge(audit.currentStatus)}
+                        </TableCell>
+                        <TableCell>
+                          {audit.plannedMeetingDate ? formatDate(audit.plannedMeetingDate) : "לא נקבע"}
+                        </TableCell>
+                        <TableCell>{audit.contacts.length}</TableCell>
+                        <TableCell>{formatDate(audit.receivedDate)}</TableCell>
+                        {user.role === "מנהלת" && <TableCell>{audit.ownerId.split('@')[0]}</TableCell>}
+                        <TableCell>
+                          <div className="flex gap-2">
+                            {canEdit(audit.ownerId) && (
+                              <Button variant="outline" size="sm" onClick={() => handleEditAudit(audit)}>
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            )}
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => {
+                                setNewlyCreatedAudit(audit);
+                                setShowRecipientInput(true);
+                              }}
+                            >
+                              <Mail className="h-4 w-4" />
                             </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                    {expandedAuditId === audit.id && (
-                      <TableRow>
-                        <TableCell colSpan={6} className="p-4 bg-gray-50">
-                          <StatusLogView statusLog={audit.statusLog} />
+                            <Button variant="outline" size="sm" onClick={() => handleExpandLog(audit.id)}>
+                              {expandedAuditId === audit.id ? 
+                                <ChevronUp className="h-4 w-4" /> : 
+                                <ChevronDown className="h-4 w-4" />
+                              }
+                            </Button>
+                            {canDelete(audit.ownerId) && (
+                              <Button variant="destructive" size="sm" onClick={() => handleDeleteAudit(audit.id)}>
+                                <X className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
-                    )}
-                  </>
-                ))}
-                {filteredAudits.length === 0 && (
+                      {expandedAuditId === audit.id && (
+                        <TableRow>
+                          <TableCell colSpan={user.role === "מנהלת" ? 7 : 6} className="p-4 bg-gray-50">
+                            <StatusLogView statusLog={audit.statusLog} />
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </>
+                  ))
+                ) : (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-4">
+                    <TableCell colSpan={user.role === "מנהלת" ? 7 : 6} className="text-center py-4">
                       לא נמצאו סקרים
                     </TableCell>
                   </TableRow>
@@ -511,7 +569,7 @@ const Dashboard = () => {
         </Card>
       </main>
 
-      {/* Create Audit Dialog */}
+      {/* חלון יצירת סקר חדש */}
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
         <DialogContent className="sm:max-w-lg md:max-w-3xl" dir="rtl">
           <DialogHeader>
@@ -525,7 +583,7 @@ const Dashboard = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Audit Sheet */}
+      {/* חלון עריכת סקר */}
       <Sheet open={isEditSheetOpen} onOpenChange={setIsEditSheetOpen}>
         <SheetContent side="left" className="w-full max-w-3xl overflow-y-auto">
           <SheetHeader>
@@ -542,7 +600,7 @@ const Dashboard = () => {
         </SheetContent>
       </Sheet>
 
-      {/* Recipient Count Input Dialog */}
+      {/* חלון הזנת מספר נמענים */}
       {newlyCreatedAudit && (
         <RecipientCountInput
           audit={newlyCreatedAudit}
@@ -552,7 +610,7 @@ const Dashboard = () => {
         />
       )}
 
-      {/* Email Template Dialog */}
+      {/* חלון תבנית מייל */}
       {newlyCreatedAudit && (
         <EmailTemplatePopup
           audit={newlyCreatedAudit}
