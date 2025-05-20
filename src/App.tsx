@@ -9,6 +9,7 @@ import { getCurrentUser } from "@/utils/localAuth";
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import Archive from "./pages/Archive";
+import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
 
 // Initialize Query Client for React Query
@@ -17,6 +18,7 @@ const queryClient = new QueryClient();
 const App = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     // Check if user is logged in
@@ -26,9 +28,11 @@ const App = () => {
         const user = getCurrentUser();
         console.log("[App] User from localStorage:", user);
         setIsAuthenticated(!!user);
+        setIsAdmin(user?.isAdmin || false);
       } catch (error) {
         console.error("[App] Error checking authentication status:", error);
         setIsAuthenticated(false);
+        setIsAdmin(false);
       } finally {
         setIsLoading(false);
       }
@@ -46,15 +50,21 @@ const App = () => {
   }, []);
 
   // Create a protected route component
-  const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const ProtectedRoute = ({ children, requireAdmin = false }: { children: React.ReactNode, requireAdmin?: boolean }) => {
     if (isLoading) {
       return <div className="min-h-screen flex items-center justify-center" dir="rtl">טוען...</div>;
     }
     
-    console.log("[ProtectedRoute] isAuthenticated:", isAuthenticated);
+    console.log(`[ProtectedRoute] isAuthenticated: ${isAuthenticated}, isAdmin: ${isAdmin}, requireAdmin: ${requireAdmin}`);
+    
     if (!isAuthenticated) {
       console.log("[ProtectedRoute] Not authenticated, redirecting to /");
       return <Navigate to="/" replace />;
+    }
+    
+    if (requireAdmin && !isAdmin) {
+      console.log("[ProtectedRoute] Not admin, redirecting to /dashboard");
+      return <Navigate to="/dashboard" replace />;
     }
 
     return <>{children}</>;
@@ -81,6 +91,14 @@ const App = () => {
               element={
                 <ProtectedRoute>
                   <Archive />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin" 
+              element={
+                <ProtectedRoute requireAdmin={true}>
+                  <AdminDashboard />
                 </ProtectedRoute>
               } 
             />

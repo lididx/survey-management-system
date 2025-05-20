@@ -22,7 +22,8 @@ const initializeUsers = (): void => {
         email: "lidor@example.com",
         password: encryptPassword("password123"),
         role: "בודק",
-        name: "לידור"
+        name: "לידור",
+        isAdmin: true // Lidor is an admin
       },
       {
         email: "moran@example.com",
@@ -67,7 +68,13 @@ export const getUsers = (): LocalUser[] => {
 };
 
 // Register a new user
-export const registerUser = (email: string, password: string, name: string, role: "בודק" | "מנהלת" = "בודק"): { success: boolean; error?: string } => {
+export const registerUser = (
+  email: string, 
+  password: string, 
+  name: string, 
+  role: "בודק" | "מנהלת" = "בודק", 
+  isAdmin: boolean = false
+): { success: boolean; error?: string } => {
   const users = getUsers();
   
   // Check if email already exists
@@ -91,7 +98,8 @@ export const registerUser = (email: string, password: string, name: string, role
     email,
     password: encryptPassword(password),
     role,
-    name
+    name,
+    isAdmin
   };
   
   // Add to users array
@@ -129,7 +137,8 @@ export const loginUser = (email: string, password: string): { success: boolean; 
   const currentUser: User = {
     email: user.email,
     role: user.role,
-    name: user.name
+    name: user.name,
+    isAdmin: user.isAdmin || false
   };
   
   localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(currentUser));
@@ -153,6 +162,12 @@ export const getCurrentUser = (): User | null => {
 export const logoutUser = (): void => {
   console.log("[localAuth] Logging out user");
   localStorage.removeItem(CURRENT_USER_KEY);
+};
+
+// Get user by email
+export const getUserByEmail = (email: string): LocalUser | null => {
+  const users = getUsers();
+  return users.find(user => user.email === email) || null;
 };
 
 // Update user
@@ -183,12 +198,41 @@ export const updateUser = (email: string, updates: Partial<Omit<LocalUser, "emai
     const updatedCurrentUser: User = {
       email,
       name: updates.name || users[userIndex].name,
-      role: updates.role || users[userIndex].role
+      role: updates.role || users[userIndex].role,
+      isAdmin: updates.isAdmin !== undefined ? updates.isAdmin : users[userIndex].isAdmin
     };
     localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(updatedCurrentUser));
   }
   
   return { success: true };
+};
+
+// Delete user (admin-only functionality)
+export const deleteUser = (email: string): { success: boolean; error?: string } => {
+  const users = getUsers();
+  const filteredUsers = users.filter(user => user.email !== email);
+  
+  if (filteredUsers.length === users.length) {
+    return {
+      success: false,
+      error: "משתמש לא נמצא"
+    };
+  }
+  
+  localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(filteredUsers));
+  return { success: true };
+};
+
+// Reset user password (admin-only functionality)
+export const resetUserPassword = (email: string, newPassword: string): { success: boolean; error?: string } => {
+  if (newPassword.length < 6) {
+    return { 
+      success: false, 
+      error: "סיסמה חייבת להכיל לפחות 6 תווים" 
+    };
+  }
+  
+  return updateUser(email, { password: newPassword });
 };
 
 // Initialize on import

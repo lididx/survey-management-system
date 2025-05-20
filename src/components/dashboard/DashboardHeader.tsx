@@ -3,7 +3,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { User } from "@/types/types";
-import { Archive, Home, LogOut } from "lucide-react";
+import { Archive, Home, LogOut, Shield } from "lucide-react";
 import { Link } from "react-router-dom";
 
 interface DashboardHeaderProps {
@@ -52,6 +52,17 @@ export const DashboardHeader = ({ user, onLogout, isArchive = false }: Dashboard
                 <Archive className="h-4 w-4" />
                 ארכיון
               </Link>
+              
+              {/* Admin link for admin users only */}
+              {user.isAdmin && (
+                <Link 
+                  to="/admin" 
+                  className="flex items-center gap-1 px-3 py-2 rounded-md text-sm font-medium text-blue-600 hover:bg-blue-50"
+                >
+                  <Shield className="h-4 w-4" />
+                  ניהול מערכת
+                </Link>
+              )}
             </nav>
             
             <Separator orientation="vertical" className="h-8" />
@@ -59,7 +70,7 @@ export const DashboardHeader = ({ user, onLogout, isArchive = false }: Dashboard
             <div className="flex items-center gap-4">
               <div className="flex flex-col items-end">
                 <span className="text-sm font-medium text-gray-900">{user.name}</span>
-                <span className="text-xs text-gray-500">{user.role}</span>
+                <span className="text-xs text-gray-500">{user.role}{user.isAdmin ? ' (מנהל מערכת)' : ''}</span>
               </div>
               <Avatar className="h-9 w-9">
                 <AvatarFallback className="bg-blue-100 text-blue-800">
