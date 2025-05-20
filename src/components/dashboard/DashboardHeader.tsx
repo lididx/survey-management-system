@@ -3,8 +3,9 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { User } from "@/types/types";
-import { Archive, Home } from "lucide-react";
+import { Archive, Home, User as UserIcon } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useSupabaseClient } from "@supabase/auth-helpers-react";
 
 interface DashboardHeaderProps {
   user: User;
@@ -13,12 +14,24 @@ interface DashboardHeaderProps {
 }
 
 export const DashboardHeader = ({ user, onLogout, isArchive = false }: DashboardHeaderProps) => {
+  const supabase = useSupabaseClient();
+  
   const getInitials = (name: string) => {
+    if (!name) return "??";
     return name
       .split(' ')
       .map(n => n[0])
       .join('')
       .toUpperCase();
+  };
+
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      onLogout();
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
   };
 
   return (
@@ -62,7 +75,7 @@ export const DashboardHeader = ({ user, onLogout, isArchive = false }: Dashboard
               <Button 
                 variant="outline" 
                 size="sm" 
-                onClick={onLogout} 
+                onClick={handleLogout} 
                 className="text-gray-600"
               >
                 התנתק

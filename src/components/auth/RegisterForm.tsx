@@ -8,11 +8,14 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Eye, EyeOff, Mail, User } from "lucide-react";
 import { toast } from "sonner";
+import { useSupabaseClient } from "@supabase/auth-helpers-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const registerSchema = z.object({
   email: z.string().email("נדרשת כתובת אימייל תקינה"),
   password: z.string().min(6, "סיסמה חייבת להכיל לפחות 6 תווים"),
   name: z.string().min(2, "שם חייב להכיל לפחות 2 תווים"),
+  role: z.enum(["בודק", "מנהלת"]).default("בודק"),
 });
 
 type RegisterFormValues = z.infer<typeof registerSchema>;
@@ -20,6 +23,7 @@ type RegisterFormValues = z.infer<typeof registerSchema>;
 const RegisterForm = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const supabase = useSupabaseClient();
 
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
@@ -27,21 +31,39 @@ const RegisterForm = () => {
       email: "",
       password: "",
       name: "",
+      role: "בודק",
     },
   });
 
   const onSubmit = async (data: RegisterFormValues) => {
     setIsLoading(true);
     try {
-      // Here we would typically connect to Supabase auth
-      // For now, we'll simulate a successful registration after a delay
-      setTimeout(() => {
+      // יצירת משתמש חדש ב-Supabase
+      const { data: authData, error } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+        options: {
+          data: {
+            name: data.name,
+            role: data.role,
+          },
+        },
+      });
+
+      if (error) {
+        console.error("Registration error:", error);
+        toast.error("שגיאה בהרשמה", {
+          description: error.message || "אנא נסה שוב מאוחר יותר",
+        });
+      } else {
+        // לאחר הרשמה מוצלחת ב-Supabase
         toast.success("נרשמת בהצלחה", {
-          description: "אנא התחבר למערכת",
+          description: "אנא אמת את האימייל שלך ואז התחבר למערכת",
         });
         form.reset();
-      }, 1000);
+      }
     } catch (error) {
+      console.error("Registration error:", error);
       toast.error("שגיאה בהרשמה", {
         description: "אנא נסה שוב מאוחר יותר",
       });
@@ -115,6 +137,28 @@ const RegisterForm = () => {
                   )}
                 </Button>
               </div>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        
+        <FormField
+          control={form.control}
+          name="role"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>תפקיד</FormLabel>
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="בחר תפקיד" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="בודק">בודק</SelectItem>
+                  <SelectItem value="מנהלת">מנהל/ת</SelectItem>
+                </SelectContent>
+              </Select>
               <FormMessage />
             </FormItem>
           )}
