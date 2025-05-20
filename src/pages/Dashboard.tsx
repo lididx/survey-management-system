@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -68,17 +67,22 @@ const Dashboard = () => {
       )
     : activeAudits;
 
-  const handleAuditFormSubmit = (auditData: Partial<Audit>) => {
-    const result = handleAuditSubmit(auditData, canEdit);
-    
-    if (formMode === "create") {
-      setIsFormOpen(false);
-      if (result) {
-        setNewlyCreatedAudit(result);
-        setShowEmailTemplate(true);
+  const handleAuditFormSubmit = async (auditData: Partial<Audit>) => {
+    try {
+      const result = await handleAuditSubmit(auditData, canEdit);
+      
+      if (formMode === "create") {
+        setIsFormOpen(false);
+        if (result) {
+          setNewlyCreatedAudit(result);
+          setShowEmailTemplate(true);
+        }
+      } else if (formMode === "edit") {
+        setIsEditSheetOpen(false);
       }
-    } else if (formMode === "edit") {
-      setIsEditSheetOpen(false);
+    } catch (error) {
+      console.error("Error submitting audit form:", error);
+      toast.error("שגיאה בשמירת הסקר");
     }
   };
 

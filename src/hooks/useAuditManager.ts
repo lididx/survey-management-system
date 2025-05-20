@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Audit, User, StatusType } from '@/types/types';
 import { toast } from 'sonner';
@@ -139,7 +138,7 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
     }
   };
 
-  const handleAuditSubmit = async (auditData: Partial<Audit>, canEdit: (auditOwnerId: string) => boolean) => {
+  const handleAuditSubmit = async (auditData: Partial<Audit>, canEdit: (auditOwnerId: string) => boolean): Promise<Audit | null> => {
     if (!user) {
       toast.error("נדרש להיות מחובר כדי לשמור סקר");
       return null;
@@ -170,12 +169,13 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
         
         return updatedAudit;
       }
+      
+      return null;
     } catch (error) {
       console.error("[handleAuditSubmit] Error:", error);
       toast.error("שגיאה בשמירת הסקר");
+      return null;
     }
-    
-    return null;
   };
 
   const sendNotificationEmail = async (audit: Audit, recipients: string[], subject: string, body: string) => {

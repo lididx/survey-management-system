@@ -1,6 +1,5 @@
-
 import { createClient } from '@supabase/supabase-js';
-import { Audit, StatusLog, Contact } from '@/types/types';
+import { Audit, Contact } from '@/types/types';
 import { toast } from 'sonner';
 
 // Initialize Supabase client
