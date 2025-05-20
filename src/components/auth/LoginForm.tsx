@@ -9,8 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Eye, EyeOff, Mail, LogIn } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
-import { useSupabaseClient } from "@supabase/auth-helpers-react";
 import { Badge } from "@/components/ui/badge";
+import { loginUser } from "@/utils/localAuth";
 
 const loginSchema = z.object({
   email: z.string().email("נדרשת כתובת אימייל תקינה"),
@@ -19,7 +19,7 @@ const loginSchema = z.object({
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
-// משתמשים לדוגמה בסביבת פיתוח - יוחלפו במשתמשים אמיתיים בסביבת הייצור
+// משתמשים לדוגמה במערכת
 const mockUsers = [
   { email: "lidor@example.com", password: "password123", role: "בודק", name: "לידור" },
   { email: "moran@example.com", password: "password123", role: "בודק", name: "מורן" },
@@ -30,7 +30,6 @@ const LoginForm = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const supabase = useSupabaseClient();
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -43,43 +42,17 @@ const LoginForm = () => {
   const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true);
     try {
-      // אימות באמצעות Supabase
-      const { data: authData, error } = await supabase.auth.signInWithPassword({
-        email: data.email,
-        password: data.password
-      });
-
-      if (error) {
-        // בדיקה אם זהו משתמש מדומה בסביבת פיתוח (לא יהיה קיים ב-Supabase)
-        const mockUser = mockUsers.find(user => 
-          user.email === data.email && user.password === data.password
-        );
-
-        if (mockUser && import.meta.env.MODE === 'development') {
-          // לוגין למשתמש מדומה בסביבת פיתוח בלבד
-          toast.success("התחברת בהצלחה (משתמש מדומה)", {
-            description: `ברוך הבא ${mockUser.name}! מועבר לדף הבית...`,
-          });
-          
-          // שמירה זמנית של המידע באחסון מקומי (רק בסביבת פיתוח!)
-          localStorage.setItem("user", JSON.stringify({
-            email: mockUser.email,
-            role: mockUser.role,
-            name: mockUser.name,
-          }));
-          
-          navigate("/dashboard");
-        } else {
-          // שגיאת התחברות אמיתית
-          console.error("Login error:", error);
-          toast.error("פרטי התחברות שגויים", {
-            description: "אימייל או סיסמה אינם נכונים",
-          });
-        }
+      // אימות באמצעות מערכת האימות המקומית
+      const { success, user, error } = loginUser(data.email, data.password);
+      
+      if (!success || error) {
+        toast.error("פרטי התחברות שגויים", {
+          description: error || "אימייל או סיסמה אינם נכונים",
+        });
       } else {
         // התחברות מוצלחת
         toast.success("התחברת בהצלחה", {
-          description: "מועבר לדף הבית...",
+          description: `ברוך הבא ${user?.name}! מועבר לדף הבית...`,
         });
         navigate("/dashboard");
       }

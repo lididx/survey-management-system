@@ -8,8 +8,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Eye, EyeOff, Mail, User } from "lucide-react";
 import { toast } from "sonner";
-import { useSupabaseClient } from "@supabase/auth-helpers-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { registerUser } from "@/utils/localAuth";
 
 const registerSchema = z.object({
   email: z.string().email("נדרשת כתובת אימייל תקינה"),
@@ -23,7 +23,6 @@ type RegisterFormValues = z.infer<typeof registerSchema>;
 const RegisterForm = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const supabase = useSupabaseClient();
 
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
@@ -38,27 +37,23 @@ const RegisterForm = () => {
   const onSubmit = async (data: RegisterFormValues) => {
     setIsLoading(true);
     try {
-      // יצירת משתמש חדש ב-Supabase
-      const { data: authData, error } = await supabase.auth.signUp({
-        email: data.email,
-        password: data.password,
-        options: {
-          data: {
-            name: data.name,
-            role: data.role,
-          },
-        },
-      });
+      // רישום משתמש חדש במערכת המקומית
+      const { success, error } = registerUser(
+        data.email,
+        data.password,
+        data.name,
+        data.role
+      );
 
-      if (error) {
+      if (!success) {
         console.error("Registration error:", error);
         toast.error("שגיאה בהרשמה", {
-          description: error.message || "אנא נסה שוב מאוחר יותר",
+          description: error || "אנא נסה שוב מאוחר יותר",
         });
       } else {
-        // לאחר הרשמה מוצלחת ב-Supabase
+        // לאחר הרשמה מוצלחת
         toast.success("נרשמת בהצלחה", {
-          description: "אנא אמת את האימייל שלך ואז התחבר למערכת",
+          description: "כעת תוכל להתחבר למערכת",
         });
         form.reset();
       }
