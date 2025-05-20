@@ -1,4 +1,3 @@
-
 import { Audit } from '@/types/types';
 import { toast } from 'sonner';
 
@@ -145,12 +144,13 @@ export const sampleAudits: Audit[] = [
   }
 ];
 
-// Global storage key for all audits
+// Global storage key for all audits - using this key for all users
 const GLOBAL_AUDITS_KEY = 'all_audits';
 
 // Helper functions for localStorage
 export const getStorageKey = (userEmail: string | null) => {
-  return userEmail ? `audits_${userEmail}` : GLOBAL_AUDITS_KEY;
+  // Always use the global key to ensure all users see the same data
+  return GLOBAL_AUDITS_KEY;
 };
 
 // Key for tracking if a user has been initialized with sample data
@@ -224,10 +224,10 @@ const parseAuditsData = (jsonData: string): Audit[] => {
 
 export const getStoredAudits = (userEmail: string | null): Audit[] => {
   try {
-    console.log(`[getStoredAudits] Fetching audits for ${userEmail || 'ALL USERS (global)'}`);
+    console.log(`[getStoredAudits] Fetching audits for ${userEmail || 'ALL USERS'}`);
     
-    // For managers (userEmail is null), get all audits
-    const storageKey = getStorageKey(userEmail);
+    // Always use the global key
+    const storageKey = GLOBAL_AUDITS_KEY;
     
     // Test if localStorage is available and working
     try {
@@ -242,52 +242,13 @@ export const getStoredAudits = (userEmail: string | null): Audit[] => {
     
     if (!storedData) {
       console.log(`[getStoredAudits] No stored data found for key: ${storageKey}`);
-      
-      // If no global audits exist but we're requesting all, try to aggregate from user audits
-      if (storageKey === GLOBAL_AUDITS_KEY) {
-        console.log("[getStoredAudits] Attempting to rebuild global audits from user data");
-        const allUserKeys = Object.keys(localStorage).filter(key => key.startsWith('audits_'));
-        
-        if (allUserKeys.length > 0) {
-          const allAudits: Audit[] = [];
-          allUserKeys.forEach(key => {
-            const userData = localStorage.getItem(key);
-            if (userData) {
-              try {
-                const parsedUserAudits = parseAuditsData(userData);
-                console.log(`[getStoredAudits] Found ${parsedUserAudits.length} audits for key ${key}`);
-                allAudits.push(...parsedUserAudits);
-              } catch (e) {
-                console.error(`[getStoredAudits] Error parsing user data for key ${key}:`, e);
-              }
-            }
-          });
-          
-          console.log(`[getStoredAudits] Reconstructed ${allAudits.length} total audits from user data`);
-          // Save this reconstructed data back to global storage for future use
-          if (allAudits.length > 0) {
-            saveAuditsToStorage(null, allAudits);
-          }
-          
-          return allAudits;
-        }
-      }
-      return [];
+      // Initialize with sample data if no audits exist yet
+      saveAuditsToStorage(null, sampleAudits);
+      return sampleAudits;
     }
     
     const parsedAudits = parseAuditsData(storedData);
-    console.log(`[getStoredAudits] Retrieved ${parsedAudits.length} audits from ${storageKey}`);
-    
-    // Verify data integrity
-    if (parsedAudits.length > 0) {
-      const hasMissingFields = parsedAudits.some(audit => 
-        !audit.id || !audit.name || !audit.ownerId
-      );
-      
-      if (hasMissingFields) {
-        console.warn("[getStoredAudits] Some audits have missing required fields");
-      }
-    }
+    console.log(`[getStoredAudits] Retrieved ${parsedAudits.length} audits from storage`);
     
     return parsedAudits;
   } catch (error) {
@@ -313,8 +274,9 @@ export const saveAuditsToStorage = (userEmail: string | null, audits: Audit[]) =
       return true;
     });
     
-    const storageKey = getStorageKey(userEmail);
-    console.log(`[saveAuditsToStorage] Saving ${filteredAudits.length} audits to ${storageKey}`);
+    // Always use the global key for consistent storage
+    const storageKey = GLOBAL_AUDITS_KEY;
+    console.log(`[saveAuditsToStorage] Saving ${filteredAudits.length} audits to storage`);
     
     // Verify localStorage is working
     try {
@@ -357,15 +319,8 @@ export const saveAuditsToStorage = (userEmail: string | null, audits: Audit[]) =
   }
 };
 
-// Clear user-specific audit data
+// Clear user-specific audit data - no longer needed as we use global storage
 export const clearUserAudits = (userEmail: string | null) => {
-  if (!userEmail) return;
-  try {
-    const storageKey = getStorageKey(userEmail);
-    console.log(`[clearUserAudits] Clearing user data for ${userEmail}`);
-    localStorage.removeItem(storageKey);
-  } catch (error) {
-    console.error("[clearUserAudits] Error clearing user audits:", error);
-  }
+  // No-op function as we're now using a global storage approach
+  console.log("[clearUserAudits] Function called but no action taken - using global storage");
 };
-

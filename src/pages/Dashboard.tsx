@@ -33,7 +33,7 @@ const Dashboard = () => {
   const [showEmailTemplate, setShowEmailTemplate] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   
-  // Pass sampleAudits instead of empty array to ensure we have data
+  // הערה: אנחנו מעבירים מערך ריק כדי לוודא שהסקרים יטענו מהלוקל סטורג'
   const { 
     audits,
     filteredAudits,
@@ -48,12 +48,14 @@ const Dashboard = () => {
     handleDeleteAudit,
     handleStatusChange,
     handleAuditSubmit
-  } = useAuditManager(sampleAudits, user);
+  } = useAuditManager([], user);
   
   const { canDelete, canEdit } = useAuditPermissions(user);
   
   // Monitor stale audits
   useStaleAudits(audits);
+
+  console.log(`[Dashboard] User: ${user?.email}, Role: ${user?.role}, Total audits: ${audits.length}, Filtered: ${filteredAudits.length}`);
   
   // Filter audits - exclude completed audits
   const activeAudits = filteredAudits.filter(

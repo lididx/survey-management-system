@@ -8,12 +8,16 @@ import {
   updateExistingAudit, 
   deleteAuditById,
   updateAuditStatusInDb,
-  migrateLocalDataToSupabase,
   isSupabaseConfigured
 } from '@/utils/supabase';
+import {
+  getStoredAudits,
+  saveAuditsToStorage,
+  sampleAudits
+} from '@/utils/auditStorage';
 
 export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
-  // Initialize audits from Supabase
+  // Initialize audits from localStorage (or fallback to initialAudits)
   const [audits, setAudits] = useState<Audit[]>(initialAudits);
   const [loading, setLoading] = useState(true);
   const [currentAudit, setCurrentAudit] = useState<Audit | null>(null);
@@ -36,18 +40,24 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
         
         // Check if Supabase is configured
         if (!isSupabaseConfigured()) {
-          console.log("[useAuditManager] Supabase is not configured, using initial audits");
-          setAudits(initialAudits);
+          console.log("[useAuditManager] Supabase is not configured, using localStorage data");
+          
+          // Get all audits from localStorage
+          const storedAudits = getStoredAudits(null);
+          
+          if (storedAudits.length > 0) {
+            setAudits(storedAudits);
+          } else {
+            // Initialize with sample data if no audits exist
+            saveAuditsToStorage(null, sampleAudits);
+            setAudits(sampleAudits);
+          }
+          
           setLoading(false);
           return;
         }
 
-        // בדיקה אם נדרשת העברת נתונים מקומיים ל-Supabase
-        const dataMigrated = await migrateLocalDataToSupabase(user.email, user.name);
-        
-        console.log(`[useAuditManager] Data migration result: ${dataMigrated}`);
-        
-        // קבלת כל הסקרים מ-Supabase
+        // If Supabase is configured, get audits from Supabase based on role
         const supabaseAudits = await getAudits(user.email, user.role);
         console.log(`[useAuditManager] Loaded ${supabaseAudits.length} audits from Supabase`);
         
@@ -55,8 +65,10 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
       } catch (error) {
         console.error("[useAuditManager] Error loading audits:", error);
         toast.error("שגיאה בטעינת נתוני הסקרים");
-        // במקרה של שגיאה, נשתמש בנתונים ראשוניים
-        setAudits(initialAudits);
+        
+        // במקרה של שגיאה, ננסה להשתמש בנתונים מקומיים
+        const storedAudits = getStoredAudits(null);
+        setAudits(storedAudits.length > 0 ? storedAudits : sampleAudits);
       } finally {
         setLoading(false);
       }
@@ -65,8 +77,12 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
     loadAudits();
   }, [user, initialAudits]);
 
-  // Determine which audits the user can see - now handled by the server with RLS
-  const filteredAudits = audits;
+  // Filter audits based on user role
+  const filteredAudits = user ? (
+    user.role === "מנהלת" 
+      ? audits // מנהלות רואות את כל הסקרים
+      : audits.filter(audit => audit.ownerId === user.email) // בודקים רואים רק את הסקרים שלהם
+  ) : [];
 
   const handleCreateAudit = () => {
     setFormMode("create");
@@ -98,13 +114,17 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
         success = await deleteAuditById(id);
       } else {
         // Fallback to local deletion
-        setAudits(prevAudits => prevAudits.filter(audit => audit.id !== id));
-        success = true;
+        const updatedAudits = audits.filter(audit => audit.id !== id);
+        setAudits(updatedAudits);
+        
+        // Save to localStorage
+        success = saveAuditsToStorage(null, updatedAudits);
       }
       
       if (success) {
         // עדכון הסקרים המקומיים
         setAudits(prevAudits => prevAudits.filter(audit => audit.id !== id));
+        toast.success("סקר נמחק בהצלחה");
       }
     } catch (error) {
       console.error("[handleDeleteAudit] Error:", error);
@@ -151,7 +171,7 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
           modifiedBy: user.name
         };
         
-        setAudits(prevAudits => prevAudits.map(a => {
+        const updatedAudits = audits.map(a => {
           if (a.id === audit.id) {
             return {
               ...a,
@@ -160,35 +180,16 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
             };
           }
           return a;
-        }));
+        });
         
-        success = true;
+        setAudits(updatedAudits);
+        
+        // Save to localStorage
+        success = saveAuditsToStorage(null, updatedAudits);
       }
       
       if (success) {
-        // עדכון הסקר המקומי
-        const now = new Date();
-        const newStatusLog = {
-          id: crypto.randomUUID(),
-          timestamp: now,
-          oldStatus: audit.currentStatus,
-          newStatus,
-          oldDate: null,
-          newDate: null,
-          reason,
-          modifiedBy: user.name
-        };
-        
-        setAudits(prevAudits => prevAudits.map(a => {
-          if (a.id === audit.id) {
-            return {
-              ...a,
-              currentStatus: newStatus,
-              statusLog: [newStatusLog, ...a.statusLog]
-            };
-          }
-          return a;
-        }));
+        toast.success(`סטטוס הסקר עודכן ל-${newStatus}`);
       }
     } catch (error) {
       console.error("[handleStatusChange] Error:", error);
@@ -229,13 +230,19 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
             ownerId: user.email,
             ownerName: user.name
           } as Audit;
+          
+          // עדכון ושמירת הסקרים
+          const updatedAudits = [newAudit, ...audits];
+          setAudits(updatedAudits);
+          
+          // שמירה בלוקל סטורג'
+          const saved = saveAuditsToStorage(null, updatedAudits);
+          if (!saved) {
+            throw new Error("שגיאה בשמירת הסקר");
+          }
         }
         
         console.log("[handleAuditSubmit] Created new audit:", newAudit);
-        
-        // עדכון הסקרים המקומיים
-        setAudits(prevAudits => [newAudit, ...prevAudits]);
-        
         toast.success("סקר חדש נוצר בהצלחה");
         return newAudit;
       } else if (formMode === "edit" && currentAudit) {
@@ -256,12 +263,20 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
             ...currentAudit,
             ...auditData,
           };
+          
+          // עדכון ושמירת הסקרים
+          const updatedAudits = audits.map(audit => 
+            audit.id === updatedAudit.id ? updatedAudit : audit
+          );
+          
+          setAudits(updatedAudits);
+          
+          // שמירה בלוקל סטורג'
+          const saved = saveAuditsToStorage(null, updatedAudits);
+          if (!saved) {
+            throw new Error("שגיאה בשמירת הסקר");
+          }
         }
-        
-        // עדכון הסקרים המקומיים
-        setAudits(prevAudits => prevAudits.map(audit => 
-          audit.id === updatedAudit.id ? updatedAudit : audit
-        ));
         
         toast.success("סקר עודכן בהצלחה");
         return updatedAudit;
