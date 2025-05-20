@@ -34,18 +34,16 @@ export const useAuthManager = () => {
 
   const handleLogout = async () => {
     try {
-      if (user?.email) {
-        console.log(`[useAuthManager] Logging out user: ${user.email}`);
-        
-        // התנתקות מהמערכת
-        logoutUser();
-        setUser(null);
-        toast.success("התנתקת בהצלחה");
-        navigate("/");
-      } else {
-        console.log("[useAuthManager] Logout called with no active user");
-        navigate("/");
-      }
+      console.log(`[useAuthManager] Logging out user: ${user?.email}`);
+      
+      // התנתקות מהמערכת
+      logoutUser();
+      setUser(null);
+      toast.success("התנתקת בהצלחה");
+      
+      // Using replace: true to prevent going back to protected routes after logout
+      console.log("[useAuthManager] Navigating to login page after logout");
+      navigate("/", { replace: true });
     } catch (error) {
       console.error("[useAuthManager] Error during logout:", error);
       toast.error("שגיאה בתהליך ההתנתקות");

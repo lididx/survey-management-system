@@ -20,17 +20,29 @@ const App = () => {
 
   useEffect(() => {
     // Check if user is logged in
-    try {
-      console.log("[App] Checking authentication status");
-      const user = getCurrentUser();
-      console.log("[App] User from localStorage:", user);
-      setIsAuthenticated(!!user);
-    } catch (error) {
-      console.error("[App] Error checking authentication status:", error);
-      setIsAuthenticated(false);
-    } finally {
-      setIsLoading(false);
-    }
+    const checkAuth = () => {
+      try {
+        console.log("[App] Checking authentication status");
+        const user = getCurrentUser();
+        console.log("[App] User from localStorage:", user);
+        setIsAuthenticated(!!user);
+      } catch (error) {
+        console.error("[App] Error checking authentication status:", error);
+        setIsAuthenticated(false);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkAuth();
+    
+    // Set up event listener for auth changes
+    window.addEventListener('storage', (event) => {
+      if (event.key === 'current_user') {
+        console.log('[App] Auth state changed, updating');
+        checkAuth();
+      }
+    });
   }, []);
 
   // Create a protected route component

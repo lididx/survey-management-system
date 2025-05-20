@@ -49,9 +49,12 @@ const LoginForm = () => {
         toast.success("התחברת בהצלחה", {
           description: `ברוך הבא ${user?.name}! מועבר לדף הבית...`,
         });
+        
+        // Force a slight delay to ensure localStorage is updated
         setTimeout(() => {
-          navigate("/dashboard");
-        }, 500);
+          console.log("Redirecting to dashboard after successful login");
+          navigate("/dashboard", { replace: true });
+        }, 800); // Increased delay to ensure state is properly updated
       }
     } catch (error) {
       console.error("Login error:", error);

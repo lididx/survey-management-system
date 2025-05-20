@@ -3,9 +3,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { User } from "@/types/types";
-import { Archive, Home, User as UserIcon } from "lucide-react";
+import { Archive, Home, LogOut } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useSupabaseClient } from "@supabase/auth-helpers-react";
 
 interface DashboardHeaderProps {
   user: User;
@@ -14,8 +13,6 @@ interface DashboardHeaderProps {
 }
 
 export const DashboardHeader = ({ user, onLogout, isArchive = false }: DashboardHeaderProps) => {
-  const supabase = useSupabaseClient();
-  
   const getInitials = (name: string) => {
     if (!name) return "??";
     return name
@@ -25,13 +22,10 @@ export const DashboardHeader = ({ user, onLogout, isArchive = false }: Dashboard
       .toUpperCase();
   };
 
-  const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut();
-      onLogout();
-    } catch (error) {
-      console.error("Logout error:", error);
-    }
+  const handleLogout = (e: React.MouseEvent) => {
+    e.preventDefault();
+    console.log("[DashboardHeader] Logout button clicked");
+    onLogout();
   };
 
   return (
@@ -76,8 +70,9 @@ export const DashboardHeader = ({ user, onLogout, isArchive = false }: Dashboard
                 variant="outline" 
                 size="sm" 
                 onClick={handleLogout} 
-                className="text-gray-600"
+                className="text-gray-600 flex items-center gap-1"
               >
+                <LogOut className="h-4 w-4" />
                 התנתק
               </Button>
             </div>
