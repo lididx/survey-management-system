@@ -15,7 +15,7 @@ const registerSchema = z.object({
   email: z.string().email("נדרשת כתובת אימייל תקינה"),
   password: z.string().min(6, "סיסמה חייבת להכיל לפחות 6 תווים"),
   name: z.string().min(2, "שם חייב להכיל לפחות 2 תווים"),
-  role: z.enum(["בודק", "מנהלת"]).default("בודק"),
+  role: z.enum(["בודק", "מנהלת", "מנהל מערכת"]).default("בודק"),
 });
 
 type RegisterFormValues = z.infer<typeof registerSchema>;
@@ -152,6 +152,7 @@ const RegisterForm = () => {
                 <SelectContent>
                   <SelectItem value="בודק">בודק</SelectItem>
                   <SelectItem value="מנהלת">מנהל/ת</SelectItem>
+                  <SelectItem value="מנהל מערכת">מנהל מערכת</SelectItem>
                 </SelectContent>
               </Select>
               <FormMessage />

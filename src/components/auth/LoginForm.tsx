@@ -87,6 +87,12 @@ const LoginForm = () => {
         }}>
           חן (מנהלת)
         </Badge>
+        <Badge variant="outline" className="p-2 cursor-pointer bg-blue-50" onClick={() => {
+          form.setValue("email", "admin@system.com");
+          form.setValue("password", "Aa123456");
+        }}>
+          מנהל מערכת
+        </Badge>
       </div>
 
       <Form {...form}>

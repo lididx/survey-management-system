@@ -46,7 +46,7 @@ export interface Audit {
   ownerName?: string;
 }
 
-export type UserRole = "בודק" | "מנהלת";
+export type UserRole = "בודק" | "מנהלת" | "מנהל מערכת";
 
 export interface User {
   id?: string;
@@ -54,4 +54,15 @@ export interface User {
   email: string;
   role: UserRole;
   isAdmin?: boolean;
+  lastLogin?: Date;
+  active?: boolean;
+}
+
+export interface AuditLogEntry {
+  id: string;
+  timestamp: Date;
+  userId: string;
+  userName: string;
+  action: string;
+  details?: string;
 }

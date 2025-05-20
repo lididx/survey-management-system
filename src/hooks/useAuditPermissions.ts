@@ -7,7 +7,7 @@ export const useAuditPermissions = (user: User | null) => {
     if (!user) return false;
     
     // מנהלי מערכת יכולים למחוק כל סקר
-    if (user.isAdmin) return true;
+    if (user.isAdmin || user.role === "מנהל מערכת") return true;
     
     // מנהלות לא יכולות למחוק רשומות
     if (user.role === "מנהלת") return false;
@@ -21,7 +21,7 @@ export const useAuditPermissions = (user: User | null) => {
     if (!user) return false;
     
     // מנהלי מערכת יכולים לערוך כל סקר
-    if (user.isAdmin) return true;
+    if (user.isAdmin || user.role === "מנהל מערכת") return true;
     
     // מנהלות יכולות לערוך כל רשומה
     if (user.role === "מנהלת") return true;
@@ -30,5 +30,17 @@ export const useAuditPermissions = (user: User | null) => {
     return user.role === "בודק" && auditOwnerId === user.email;
   };
 
-  return { canDelete, canEdit };
+  // בדיקת הרשאות לצפייה במשתמשים
+  const canViewUsers = () => {
+    if (!user) return false;
+    return user.isAdmin || user.role === "מנהל מערכת";
+  };
+
+  // בדיקת הרשאות לניהול משתמשים
+  const canManageUsers = () => {
+    if (!user) return false;
+    return user.isAdmin || user.role === "מנהל מערכת";
+  };
+
+  return { canDelete, canEdit, canViewUsers, canManageUsers };
 };
