@@ -19,18 +19,23 @@ interface LocalUser extends User {
 
 // Initialize users if not already present
 const initializeUsers = (): void => {
+  // Clear the existing users for testing to ensure we have the correct setup
+  localStorage.removeItem(USERS_STORAGE_KEY);
+  
   if (!localStorage.getItem(USERS_STORAGE_KEY)) {
     const defaultUsers: LocalUser[] = [
       {
+        id: "user_1",
         email: "lidor@example.com",
         password: encryptPassword("password123"),
         role: "בודק",
         name: "לידור",
-        isAdmin: true, // Lidor is an admin
+        isAdmin: false,
         active: true,
         lastLogin: new Date()
       },
       {
+        id: "user_2",
         email: "moran@example.com",
         password: encryptPassword("password123"),
         role: "בודק",
@@ -38,6 +43,7 @@ const initializeUsers = (): void => {
         active: true
       },
       {
+        id: "user_3",
         email: "chen@example.com",
         password: encryptPassword("password123"),
         role: "מנהלת",
@@ -45,6 +51,7 @@ const initializeUsers = (): void => {
         active: true
       },
       {
+        id: "user_4",
         email: "admin@system.com",
         password: encryptPassword("Aa123456"),
         role: "מנהל מערכת",
@@ -191,7 +198,13 @@ export const registerUser = (
 // Login user
 export const loginUser = (email: string, password: string): { success: boolean; user?: User; error?: string } => {
   console.log(`[localAuth] Login attempt for email: ${email}`);
+  
+  // Force initialization of users to ensure they exist
+  initializeUsers();
+  
   const users = getUsers();
+  console.log("[localAuth] Available users:", users.map(u => ({ email: u.email, role: u.role, active: u.active })));
+  
   const user = users.find(u => u.email === email && u.active !== false);
   
   if (!user) {
@@ -203,7 +216,7 @@ export const loginUser = (email: string, password: string): { success: boolean; 
   }
   
   const passwordValid = verifyPassword(user.password, password);
-  console.log(`[localAuth] Password valid: ${passwordValid}`);
+  console.log(`[localAuth] Password valid for ${email}: ${passwordValid}`);
   
   if (!passwordValid) {
     // Log failed login attempt
@@ -231,6 +244,7 @@ export const loginUser = (email: string, password: string): { success: boolean; 
   
   // Store current user in session
   const currentUser: User = {
+    id: user.id,
     email: user.email,
     role: user.role,
     name: user.name,
