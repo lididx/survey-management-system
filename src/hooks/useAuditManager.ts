@@ -35,7 +35,7 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
         setLoading(true);
         
         // Check if Supabase is configured
-        if (!isSupabaseConfigured) {
+        if (!isSupabaseConfigured()) {
           console.log("[useAuditManager] Supabase is not configured, using initial audits");
           setAudits(initialAudits);
           setLoading(false);
@@ -79,72 +79,120 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
   };
 
   const handleDeleteAudit = async (id: string, canDelete: (auditOwnerId: string) => boolean) => {
-    const auditToDelete = audits.find(audit => audit.id === id);
-    
-    if (!auditToDelete) {
-      toast.error("הסקר לא נמצא");
-      return;
-    }
-    
-    if (!canDelete(auditToDelete.ownerId)) {
-      toast.error("אין לך הרשאה למחוק סקר זה");
-      return;
-    }
-    
-    const success = await deleteAuditById(id);
-    
-    if (success) {
-      // עדכון הסקרים המקומיים
-      setAudits(prevAudits => prevAudits.filter(audit => audit.id !== id));
+    try {
+      const auditToDelete = audits.find(audit => audit.id === id);
+      
+      if (!auditToDelete) {
+        toast.error("הסקר לא נמצא");
+        return;
+      }
+      
+      if (!canDelete(auditToDelete.ownerId)) {
+        toast.error("אין לך הרשאה למחוק סקר זה");
+        return;
+      }
+      
+      let success = false;
+      
+      if (isSupabaseConfigured()) {
+        success = await deleteAuditById(id);
+      } else {
+        // Fallback to local deletion
+        setAudits(prevAudits => prevAudits.filter(audit => audit.id !== id));
+        success = true;
+      }
+      
+      if (success) {
+        // עדכון הסקרים המקומיים
+        setAudits(prevAudits => prevAudits.filter(audit => audit.id !== id));
+      }
+    } catch (error) {
+      console.error("[handleDeleteAudit] Error:", error);
+      toast.error("שגיאה במחיקת הסקר");
     }
   };
   
   const handleStatusChange = async (audit: Audit, newStatus: StatusType) => {
-    if (!user) {
-      toast.error("נדרש להיות מחובר כדי לעדכן סטטוס");
-      return;
-    }
-    
-    const canEdit = (auditOwnerId: string) => {
-      // מנהלות יכולות לערוך כל רשומה
-      if (user.role === "מנהלת") return true;
+    try {
+      if (!user) {
+        toast.error("נדרש להיות מחובר כדי לעדכן סטטוס");
+        return;
+      }
       
-      // בודקים יכולים לערוך רק את הסקרים שלהם
-      return user.role === "בודק" && auditOwnerId === user.email;
-    };
-    
-    if (!canEdit(audit.ownerId)) {
-      toast.error("אין לך הרשאה לעדכן סקר זה");
-      return;
-    }
-    
-    const reason = `עדכון סטטוס ל-${newStatus}`;
-    const success = await updateAuditStatusInDb(audit.id, newStatus, reason, user.name);
-    
-    if (success) {
-      // עדכון הסקר המקומי
-      const now = new Date();
-      const newStatusLog = {
-        id: crypto.randomUUID(),
-        timestamp: now,
-        oldStatus: audit.currentStatus,
-        newStatus,
-        oldDate: null,
-        newDate: null,
-        reason,
-        modifiedBy: user.name
+      const canEdit = (auditOwnerId: string) => {
+        // מנהלות יכולות לערוך כל רשומה
+        if (user.role === "מנהלת") return true;
+        
+        // בודקים יכולים לערוך רק את הסקרים שלהם
+        return user.role === "בודק" && auditOwnerId === user.email;
       };
       
-      setAudits(prevAudits => prevAudits.map(a => {
-        if (a.id === audit.id) {
-          return {
-            ...a,
-            currentStatus: newStatus,
-            statusLog: [newStatusLog, ...a.statusLog]
-          };
-        }
-        return a;
-      }));
+      if (!canEdit(audit.ownerId)) {
+        toast.error("אין לך הרשאה לעדכן סקר זה");
+        return;
+      }
+      
+      const reason = `עדכון סטטוס ל-${newStatus}`;
+      let success = false;
+      
+      if (isSupabaseConfigured()) {
+        success = await updateAuditStatusInDb(audit.id, newStatus, reason, user.name);
+      } else {
+        // Fallback to local update
+        const now = new Date();
+        const newStatusLog = {
+          id: crypto.randomUUID(),
+          timestamp: now,
+          oldStatus: audit.currentStatus,
+          newStatus,
+          oldDate: null,
+          newDate: null,
+          reason,
+          modifiedBy: user.name
+        };
+        
+        setAudits(prevAudits => prevAudits.map(a => {
+          if (a.id === audit.id) {
+            return {
+              ...a,
+              currentStatus: newStatus,
+              statusLog: [newStatusLog, ...a.statusLog]
+            };
+          }
+          return a;
+        }));
+        
+        success = true;
+      }
+      
+      if (success) {
+        // עדכון הסקר המקומי
+        const now = new Date();
+        const newStatusLog = {
+          id: crypto.randomUUID(),
+          timestamp: now,
+          oldStatus: audit.currentStatus,
+          newStatus,
+          oldDate: null,
+          newDate: null,
+          reason,
+          modifiedBy: user.name
+        };
+        
+        setAudits(prevAudits => prevAudits.map(a => {
+          if (a.id === audit.id) {
+            return {
+              ...a,
+              currentStatus: newStatus,
+              statusLog: [newStatusLog, ...a.statusLog]
+            };
+          }
+          return a;
+        }));
+      }
+    } catch (error) {
+      console.error("[handleStatusChange] Error:", error);
+      toast.error("שגיאה בעדכון סטטוס הסקר");
     }
   };
 
@@ -157,10 +205,38 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
     try {
       if (formMode === "create") {
         // יצירת סקר חדש
-        const newAudit = await createNewAudit(auditData, user.email, user.name);
+        let newAudit: Audit;
+        
+        if (isSupabaseConfigured()) {
+          newAudit = await createNewAudit(auditData, user.email, user.name);
+        } else {
+          // Fallback to local creation
+          newAudit = {
+            ...auditData,
+            id: crypto.randomUUID(),
+            receivedDate: new Date(),
+            currentStatus: "התקבל",
+            statusLog: [{
+              id: crypto.randomUUID(),
+              timestamp: new Date(),
+              oldStatus: null,
+              newStatus: "התקבל",
+              oldDate: null,
+              newDate: null,
+              reason: "יצירת סקר",
+              modifiedBy: user.name
+            }],
+            ownerId: user.email,
+            ownerName: user.name
+          } as Audit;
+        }
+        
+        console.log("[handleAuditSubmit] Created new audit:", newAudit);
         
         // עדכון הסקרים המקומיים
         setAudits(prevAudits => [newAudit, ...prevAudits]);
+        
+        toast.success("סקר חדש נוצר בהצלחה");
         return newAudit;
       } else if (formMode === "edit" && currentAudit) {
         // וידוא הרשאות עריכה
@@ -170,13 +246,24 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
         }
         
         // עדכון סקר קיים
-        const updatedAudit = await updateExistingAudit(currentAudit.id, auditData, user.name);
+        let updatedAudit: Audit;
+        
+        if (isSupabaseConfigured()) {
+          updatedAudit = await updateExistingAudit(currentAudit.id, auditData, user.name);
+        } else {
+          // Fallback to local update
+          updatedAudit = {
+            ...currentAudit,
+            ...auditData,
+          };
+        }
         
         // עדכון הסקרים המקומיים
         setAudits(prevAudits => prevAudits.map(audit => 
           audit.id === updatedAudit.id ? updatedAudit : audit
         ));
         
+        toast.success("סקר עודכן בהצלחה");
         return updatedAudit;
       }
       

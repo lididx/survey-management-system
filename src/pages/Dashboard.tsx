@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -23,6 +24,7 @@ import { useAuthManager } from "@/hooks/useAuthManager";
 import { useAuditPermissions } from "@/hooks/useAuditPermissions";
 import { useAuditManager } from "@/hooks/useAuditManager";
 import { useStaleAudits } from "@/hooks/useStaleAudits";
+import { sampleAudits } from "@/utils/auditStorage";
 
 const Dashboard = () => {
   const { user, handleLogout } = useAuthManager();
@@ -31,7 +33,7 @@ const Dashboard = () => {
   const [showEmailTemplate, setShowEmailTemplate] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   
-  // Pass an empty array instead of sampleAudits to prevent default loading
+  // Pass sampleAudits instead of empty array to ensure we have data
   const { 
     audits,
     filteredAudits,
@@ -46,7 +48,7 @@ const Dashboard = () => {
     handleDeleteAudit,
     handleStatusChange,
     handleAuditSubmit
-  } = useAuditManager([], user);
+  } = useAuditManager(sampleAudits, user);
   
   const { canDelete, canEdit } = useAuditPermissions(user);
   
@@ -69,7 +71,9 @@ const Dashboard = () => {
 
   const handleAuditFormSubmit = async (auditData: Partial<Audit>) => {
     try {
+      console.log("[Dashboard] Submitting audit form:", auditData);
       const result = await handleAuditSubmit(auditData, canEdit);
+      console.log("[Dashboard] Form submit result:", result);
       
       if (formMode === "create") {
         setIsFormOpen(false);
@@ -81,7 +85,7 @@ const Dashboard = () => {
         setIsEditSheetOpen(false);
       }
     } catch (error) {
-      console.error("Error submitting audit form:", error);
+      console.error("[Dashboard] Error submitting audit form:", error);
       toast.error("שגיאה בשמירת הסקר");
     }
   };

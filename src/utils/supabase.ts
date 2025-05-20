@@ -1,465 +1,402 @@
+
 import { createClient } from '@supabase/supabase-js';
-import { Audit, StatusType, Contact } from '@/types/types';
+import { Audit, User, StatusType } from '@/types/types';
 import { toast } from 'sonner';
+import { getStoredAudits, saveAuditsToStorage, sampleAudits } from './auditStorage';
 
-// Initialize Supabase client with dummy values if environment variables are not set
-// This prevents the app from crashing when Supabase is not configured
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://placeholder-url.supabase.co";
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "placeholder-key";
+// Mock Supabase credentials to avoid errors
+const supabaseUrl = 'https://your-project-url.supabase.co';
+const supabaseKey = 'your-public-anon-key';
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-// Create a flag to check if Supabase is properly configured
-export const isSupabaseConfigured = 
-  import.meta.env.VITE_SUPABASE_URL && 
-  import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-// פונקציות עזר לניהול הסקרים
-
-// קבלת כל הסקרים המותרים לפי הרשאות משתמש
-export const getAudits = async (userEmail: string, role: string) => {
+// Check if Supabase is properly configured
+export const isSupabaseConfigured = () => {
   try {
-    // If Supabase is not configured, return an empty array
-    if (!isSupabaseConfigured) {
-      console.warn('[getAudits] Supabase is not properly configured. Returning empty array.');
-      return [];
-    }
+    return supabaseUrl !== 'https://your-project-url.supabase.co' && supabaseKey !== 'your-public-anon-key';
+  } catch (error) {
+    console.error("[Supabase] Configuration check error:", error);
+    return false;
+  }
+};
+
+let supabaseClient;
+try {
+  // Only create a client if URLs are valid
+  if (isSupabaseConfigured()) {
+    supabaseClient = createClient(supabaseUrl, supabaseKey);
+  } else {
+    console.log("[Supabase] Using fallback mode (no Supabase)");
+  }
+} catch (error) {
+  console.error("[Supabase] Client creation error:", error);
+}
+
+// Get all audits (based on user role)
+export const getAudits = async (userEmail: string, userRole: string): Promise<Audit[]> => {
+  console.log(`[getAudits] Getting audits for ${userEmail} with role ${userRole}`);
+  
+  // Fallback to localStorage if Supabase not configured
+  if (!isSupabaseConfigured()) {
+    console.log("[getAudits] Using local storage fallback");
+    const storedAudits = getStoredAudits(null);
+    return storedAudits.length > 0 ? storedAudits : sampleAudits;
+  }
+  
+  try {
+    // מנהלים רואים את כל הסקרים, בודקים רואים רק את שלהם
+    let query = supabaseClient.from('audits').select('*');
     
-    let query = supabase.from('audits').select(`
-      *,
-      contacts(*),
-      statusLog:status_logs(*)
-    `);
-    
-    // מנהל רואה את כל הסקרים, בודק רואה רק את הסקרים שלו
-    if (role !== 'מנהלת') {
+    if (userRole === "בודק") {
       query = query.eq('ownerId', userEmail);
     }
     
     const { data, error } = await query.order('receivedDate', { ascending: false });
     
     if (error) {
-      console.error('Error fetching audits:', error);
+      console.error("[getAudits] Error:", error);
+      toast.error("שגיאה בטעינת נתוני הסקרים");
       throw error;
     }
     
-    // המרת הנתונים למבנה הנדרש באפליקציה
-    return data.map((audit: any) => ({
-      id: audit.id,
-      name: audit.name,
-      description: audit.description,
-      clientName: audit.clientName,
+    const parsedAudits = data.map(audit => ({
+      ...audit,
       receivedDate: new Date(audit.receivedDate),
       plannedMeetingDate: audit.plannedMeetingDate ? new Date(audit.plannedMeetingDate) : null,
-      currentStatus: audit.currentStatus,
-      ownerId: audit.ownerId,
-      ownerName: audit.ownerName,
-      contacts: audit.contacts,
-      statusLog: audit.statusLog.map((log: any) => ({
+      statusLog: Array.isArray(audit.statusLog) ? audit.statusLog.map((log: any) => ({
         ...log,
         timestamp: new Date(log.timestamp),
         oldDate: log.oldDate ? new Date(log.oldDate) : null,
         newDate: log.newDate ? new Date(log.newDate) : null,
-      }))
+      })) : [],
     }));
     
+    console.log(`[getAudits] Retrieved ${parsedAudits.length} audits from Supabase`);
+    
+    return parsedAudits;
   } catch (error) {
-    console.error('Error in getAudits:', error);
-    toast.error('שגיאה בטעינת נתוני הסקרים');
-    return [];
+    console.error("[getAudits] Error:", error);
+    // במקרה של שגיאה - השתמש בנתונים מקומיים
+    const localAudits = getStoredAudits(null);
+    return localAudits.length > 0 ? localAudits : sampleAudits;
   }
 };
 
-// יצירת סקר חדש
-export const createNewAudit = async (auditData: Partial<Audit>, userEmail: string, userName: string) => {
-  try {
-    // If Supabase is not configured, show a warning message
-    if (!isSupabaseConfigured) {
-      console.warn('[createNewAudit] Supabase is not properly configured. Unable to create audit.');
-      toast.error('שגיאת תצורה: לא ניתן ליצור סקר חדש');
-      throw new Error('Supabase is not properly configured');
-    }
+// Create a new audit
+export const createNewAudit = async (auditData: Partial<Audit>, userEmail: string, userName: string): Promise<Audit> => {
+  console.log("[createNewAudit] Creating new audit");
 
-    // יצירת מזהה ייחודי (אם לא סופק)
-    const auditId = auditData.id || crypto.randomUUID();
-    
-    // יצירת רשומת הסקר
-    const { error: auditError } = await supabase.from('audits').insert({
-      id: auditId,
-      name: auditData.name,
-      description: auditData.description || '',
-      clientName: auditData.clientName || '',
-      receivedDate: auditData.receivedDate?.toISOString() || new Date().toISOString(),
-      plannedMeetingDate: auditData.plannedMeetingDate?.toISOString() || null,
-      currentStatus: auditData.currentStatus || 'התקבל',
+  // Fallback to localStorage if Supabase not configured
+  if (!isSupabaseConfigured()) {
+    console.log("[createNewAudit] Using local storage fallback");
+    const newAudit: Audit = {
+      ...auditData,
+      id: crypto.randomUUID(),
+      receivedDate: new Date(),
+      currentStatus: "התקבל",
+      statusLog: [{
+        id: crypto.randomUUID(),
+        timestamp: new Date(),
+        oldStatus: null,
+        newStatus: "התקבל",
+        oldDate: null,
+        newDate: null,
+        reason: "יצירת סקר",
+        modifiedBy: userName
+      }],
       ownerId: userEmail,
       ownerName: userName
-    });
+    } as Audit;
     
-    if (auditError) throw auditError;
+    const allAudits = getStoredAudits(null);
+    const updatedAudits = [newAudit, ...allAudits];
+    saveAuditsToStorage(null, updatedAudits);
     
-    // יצירת רשומת יומן סטטוסים ראשונית
-    const initialStatusLog = {
-      id: crypto.randomUUID(),
-      auditId: auditId,
-      timestamp: new Date().toISOString(),
-      oldStatus: null,
-      newStatus: auditData.currentStatus || 'התקבל',
-      oldDate: null,
-      newDate: null,
-      reason: 'יצירת סקר',
-      modifiedBy: userName
-    };
+    return newAudit;
+  }
+
+  try {
+    const newAuditId = crypto.randomUUID();
     
-    const { error: statusLogError } = await supabase.from('status_logs').insert(initialStatusLog);
+    // יצירת רשומת סקר חדשה
+    const newAudit: Audit = {
+      ...auditData,
+      id: newAuditId,
+      receivedDate: new Date(),
+      currentStatus: "התקבל",
+      statusLog: [{
+        id: crypto.randomUUID(),
+        timestamp: new Date(),
+        oldStatus: null,
+        newStatus: "התקבל",
+        oldDate: null,
+        newDate: null,
+        reason: "יצירת סקר",
+        modifiedBy: userName
+      }],
+      ownerId: userEmail,
+      ownerName: userName
+    } as Audit;
     
-    if (statusLogError) throw statusLogError;
+    // הוספת הסקר לבסיס הנתונים
+    const { error } = await supabaseClient.from('audits').insert(newAudit);
     
-    // יצירת אנשי קשר (אם קיימים)
-    if (auditData.contacts && auditData.contacts.length > 0) {
-      const contactsToInsert = auditData.contacts.map(contact => ({
-        id: contact.id || crypto.randomUUID(),
-        auditId: auditId,
-        fullName: contact.fullName,
-        role: contact.role,
-        email: contact.email,
-        phone: contact.phone,
-        gender: contact.gender
-      }));
-      
-      const { error: contactsError } = await supabase.from('contacts').insert(contactsToInsert);
-      
-      if (contactsError) throw contactsError;
+    if (error) {
+      console.error("[createNewAudit] Error:", error);
+      toast.error("שגיאת תצורה: לא ניתן ליצור סקר חדש");
+      throw error;
     }
     
-    toast.success('הסקר נוצר בהצלחה');
+    console.log("[createNewAudit] Audit created successfully with ID:", newAuditId);
     
-    // קבלת הסקר החדש עם כל הנתונים הקשורים
-    const { data: newAuditData, error: fetchError } = await supabase
-      .from('audits')
-      .select(`
-        *,
-        contacts(*),
-        statusLog:status_logs(*)
-      `)
-      .eq('id', auditId)
-      .single();
-    
-    if (fetchError) throw fetchError;
-    
-    return {
-      ...newAuditData,
-      receivedDate: new Date(newAuditData.receivedDate),
-      plannedMeetingDate: newAuditData.plannedMeetingDate ? new Date(newAuditData.plannedMeetingDate) : null,
-      statusLog: newAuditData.statusLog.map((log: any) => ({
-        ...log,
-        timestamp: new Date(log.timestamp),
-        oldDate: log.oldDate ? new Date(log.oldDate) : null,
-        newDate: log.newDate ? new Date(log.newDate) : null,
-      }))
-    };
-    
+    return newAudit;
   } catch (error) {
-    console.error('Error creating audit:', error);
-    toast.error('שגיאה ביצירת הסקר');
+    console.error("[createNewAudit] Error:", error);
+    toast.error("שגיאה ביצירת סקר חדש");
     throw error;
   }
 };
 
-// עדכון סקר קיים
-export const updateExistingAudit = async (auditId: string, auditData: Partial<Audit>, userName: string) => {
-  try {
-    // If Supabase is not configured, show a warning message
-    if (!isSupabaseConfigured) {
-      console.warn('[updateExistingAudit] Supabase is not properly configured. Unable to update audit.');
-      toast.error('שגיאת תצורה: לא ניתן לעדכן את הסקר');
-      throw new Error('Supabase is not properly configured');
+// Update an existing audit
+export const updateExistingAudit = async (auditId: string, auditData: Partial<Audit>, userName: string): Promise<Audit> => {
+  console.log(`[updateExistingAudit] Updating audit: ${auditId}`);
+  
+  // Fallback to localStorage if Supabase not configured
+  if (!isSupabaseConfigured()) {
+    console.log("[updateExistingAudit] Using local storage fallback");
+    const allAudits = getStoredAudits(null);
+    const existingAudit = allAudits.find(audit => audit.id === auditId);
+    
+    if (!existingAudit) {
+      throw new Error("Audit not found");
     }
+    
+    const updatedAudit = {
+      ...existingAudit,
+      ...auditData
+    };
+    
+    const updatedAudits = allAudits.map(audit => audit.id === auditId ? updatedAudit : audit);
+    saveAuditsToStorage(null, updatedAudits);
+    
+    return updatedAudit;
+  }
 
-    // עדכון רשומת הסקר
-    const { error: auditError } = await supabase
+  try {
+    // קבלת הסקר הנוכחי
+    const { data: currentAudit, error: fetchError } = await supabaseClient
+      .from('audits')
+      .select('*')
+      .eq('id', auditId)
+      .single();
+    
+    if (fetchError) {
+      console.error("[updateExistingAudit] Fetch error:", fetchError);
+      toast.error("שגיאה באיתור הסקר");
+      throw fetchError;
+    }
+    
+    // מיזוג הנתונים
+    const updatedAudit = {
+      ...currentAudit,
+      ...auditData
+    };
+    
+    // עדכון הסקר בבסיס הנתונים
+    const { error: updateError } = await supabaseClient
+      .from('audits')
+      .update(updatedAudit)
+      .eq('id', auditId);
+    
+    if (updateError) {
+      console.error("[updateExistingAudit] Update error:", updateError);
+      toast.error("שגיאה בעדכון הסקר");
+      throw updateError;
+    }
+    
+    console.log(`[updateExistingAudit] Audit updated successfully: ${auditId}`);
+    
+    return updatedAudit;
+  } catch (error) {
+    console.error("[updateExistingAudit] Error:", error);
+    toast.error("שגיאה בעדכון הסקר");
+    throw error;
+  }
+};
+
+// Delete an audit
+export const deleteAuditById = async (auditId: string): Promise<boolean> => {
+  console.log(`[deleteAuditById] Deleting audit: ${auditId}`);
+  
+  // Fallback to localStorage if Supabase not configured
+  if (!isSupabaseConfigured()) {
+    console.log("[deleteAuditById] Using local storage fallback");
+    const allAudits = getStoredAudits(null);
+    const filteredAudits = allAudits.filter(audit => audit.id !== auditId);
+    saveAuditsToStorage(null, filteredAudits);
+    return true;
+  }
+
+  try {
+    // מחיקת הסקר מבסיס הנתונים
+    const { error } = await supabaseClient
+      .from('audits')
+      .delete()
+      .eq('id', auditId);
+    
+    if (error) {
+      console.error("[deleteAuditById] Error:", error);
+      toast.error("שגיאה במחיקת הסקר");
+      return false;
+    }
+    
+    console.log(`[deleteAuditById] Audit deleted successfully: ${auditId}`);
+    
+    return true;
+  } catch (error) {
+    console.error("[deleteAuditById] Error:", error);
+    toast.error("שגיאה במחיקת הסקר");
+    return false;
+  }
+};
+
+// Update audit status
+export const updateAuditStatusInDb = async (
+  auditId: string,
+  newStatus: StatusType,
+  reason: string,
+  modifiedBy: string
+): Promise<boolean> => {
+  console.log(`[updateAuditStatusInDb] Updating status for audit ${auditId} to ${newStatus}`);
+  
+  // Fallback to localStorage if Supabase not configured
+  if (!isSupabaseConfigured()) {
+    console.log("[updateAuditStatusInDb] Using local storage fallback");
+    const allAudits = getStoredAudits(null);
+    const existingAudit = allAudits.find(audit => audit.id === auditId);
+    
+    if (!existingAudit) {
+      toast.error("הסקר לא נמצא");
+      return false;
+    }
+    
+    const statusChange = {
+      id: crypto.randomUUID(),
+      timestamp: new Date(),
+      oldStatus: existingAudit.currentStatus,
+      newStatus: newStatus,
+      oldDate: null,
+      newDate: null,
+      reason: reason,
+      modifiedBy: modifiedBy
+    };
+    
+    const updatedAudit = {
+      ...existingAudit,
+      currentStatus: newStatus,
+      statusLog: [...existingAudit.statusLog, statusChange]
+    };
+    
+    const updatedAudits = allAudits.map(audit => audit.id === auditId ? updatedAudit : audit);
+    saveAuditsToStorage(null, updatedAudits);
+    
+    return true;
+  }
+
+  try {
+    // קבלת הסקר הנוכחי
+    const { data: currentAudit, error: fetchError } = await supabaseClient
+      .from('audits')
+      .select('currentStatus, statusLog')
+      .eq('id', auditId)
+      .single();
+    
+    if (fetchError) {
+      console.error("[updateAuditStatusInDb] Fetch error:", fetchError);
+      toast.error("שגיאה באיתור הסקר");
+      return false;
+    }
+    
+    // יצירת רשומת שינוי סטטוס חדשה
+    const statusChange = {
+      id: crypto.randomUUID(),
+      timestamp: new Date(),
+      oldStatus: currentAudit.currentStatus,
+      newStatus: newStatus,
+      oldDate: null,
+      newDate: null,
+      reason: reason,
+      modifiedBy: modifiedBy
+    };
+    
+    // שמירת השינוי בבסיס הנתונים
+    const { error: updateError } = await supabaseClient
       .from('audits')
       .update({
-        name: auditData.name,
-        description: auditData.description,
-        clientName: auditData.clientName,
-        plannedMeetingDate: auditData.plannedMeetingDate?.toISOString() || null,
+        currentStatus: newStatus,
+        statusLog: [...currentAudit.statusLog, statusChange]
       })
       .eq('id', auditId);
     
-    if (auditError) throw auditError;
-    
-    // עדכון אנשי הקשר
-    if (auditData.contacts && auditData.contacts.length > 0) {
-      // מחיקת אנשי קשר קיימים
-      await supabase.from('contacts').delete().eq('auditId', auditId);
-      
-      // הוספת אנשי הקשר החדשים
-      const contactsToInsert = auditData.contacts.map(contact => ({
-        id: contact.id || crypto.randomUUID(),
-        auditId: auditId,
-        fullName: contact.fullName,
-        role: contact.role,
-        email: contact.email,
-        phone: contact.phone,
-        gender: contact.gender
-      }));
-      
-      const { error: contactsError } = await supabase.from('contacts').insert(contactsToInsert);
-      
-      if (contactsError) throw contactsError;
-    }
-    
-    toast.success('הסקר עודכן בהצלחה');
-    
-    // קבלת הסקר המעודכן עם כל הנתונים הקשורים
-    const { data: updatedAuditData, error: fetchError } = await supabase
-      .from('audits')
-      .select(`
-        *,
-        contacts(*),
-        statusLog:status_logs(*)
-      `)
-      .eq('id', auditId)
-      .single();
-    
-    if (fetchError) throw fetchError;
-    
-    return {
-      ...updatedAuditData,
-      receivedDate: new Date(updatedAuditData.receivedDate),
-      plannedMeetingDate: updatedAuditData.plannedMeetingDate ? new Date(updatedAuditData.plannedMeetingDate) : null,
-      statusLog: updatedAuditData.statusLog.map((log: any) => ({
-        ...log,
-        timestamp: new Date(log.timestamp),
-        oldDate: log.oldDate ? new Date(log.oldDate) : null,
-        newDate: log.newDate ? new Date(log.newDate) : null,
-      }))
-    };
-    
-  } catch (error) {
-    console.error('Error updating audit:', error);
-    toast.error('שגיאה בעדכון הסקר');
-    throw error;
-  }
-};
-
-// מחיקת סקר
-export const deleteAuditById = async (auditId: string) => {
-  try {
-    // If Supabase is not configured, show a warning message
-    if (!isSupabaseConfigured) {
-      console.warn('[deleteAuditById] Supabase is not properly configured. Unable to delete audit.');
-      toast.error('שגיאת תצורה: לא ניתן למחוק את הסקר');
+    if (updateError) {
+      console.error("[updateAuditStatusInDb] Update error:", updateError);
+      toast.error("שגיאה בעדכון סטטוס הסקר");
       return false;
     }
-
-    // מחיקת האנשי קשר (יימחקו אוטומatically בזכות CASCADE constraints)
     
-    // מחיקת יומן הסטטוסים (יימחקו אוטומatically בזכות CASCADE constraints)
+    console.log(`[updateAuditStatusInDb] Status updated successfully for audit: ${auditId}`);
     
-    // מחיקת הסקר עצמו
-    const { error } = await supabase.from('audits').delete().eq('id', auditId);
-    
-    if (error) throw error;
-    
-    toast.success('הסקר נמחק בהצלחה');
     return true;
   } catch (error) {
-    console.error('Error deleting audit:', error);
-    toast.error('שגיאה במחיקת הסקר');
+    console.error("[updateAuditStatusInDb] Error:", error);
+    toast.error("שגיאה בעדכון סטטוס הסקר");
     return false;
   }
 };
 
-// עדכון סטטוס סקר
-export const updateAuditStatusInDb = async (auditId: string, newStatus: string, reason: string, userName: string, oldDate?: Date | null, newDate?: Date | null) => {
-  try {
-    // If Supabase is not configured, show a warning message
-    if (!isSupabaseConfigured) {
-      console.warn('[updateAuditStatusInDb] Supabase is not properly configured. Unable to update audit status.');
-      toast.error('שגיאת תצורה: לא ניתן לעדכן את סטטוס הסקר');
-      return false;
-    }
-
-    // קבלת הסטטוס הנוכחי
-    const { data: currentAuditData, error: fetchError } = await supabase
-      .from('audits')
-      .select('currentStatus, plannedMeetingDate')
-      .eq('id', auditId)
-      .single();
-    
-    if (fetchError) throw fetchError;
-    
-    // עדכון הסטטוס בטבלת הסקרים
-    const updateData: any = { currentStatus: newStatus };
-    
-    // עדכון תאריך פגישה אם נדרש
-    if (newDate) {
-      updateData.plannedMeetingDate = newDate.toISOString();
-    }
-    
-    const { error: updateError } = await supabase
-      .from('audits')
-      .update(updateData)
-      .eq('id', auditId);
-    
-    if (updateError) throw updateError;
-    
-    // הוספת רשומה חדשה ליומן סטטוסים
-    const statusLogEntry = {
-      id: crypto.randomUUID(),
-      auditId: auditId,
-      timestamp: new Date().toISOString(),
-      oldStatus: currentAuditData.currentStatus,
-      newStatus: newStatus,
-      oldDate: currentAuditData.plannedMeetingDate,
-      newDate: newDate ? newDate.toISOString() : null,
-      reason: reason || `עדכון סטטוס ל-${newStatus}`,
-      modifiedBy: userName
-    };
-    
-    const { error: logError } = await supabase
-      .from('status_logs')
-      .insert(statusLogEntry);
-    
-    if (logError) throw logError;
-    
-    toast.success('הסטטוס עודכן בהצלחה');
-    return true;
-  } catch (error) {
-    console.error('Error updating audit status:', error);
-    toast.error('שגיאה בעדכון סטטוס הסקר');
+// Migrate local data to Supabase if needed
+export const migrateLocalDataToSupabase = async (userEmail: string, userName: string): Promise<boolean> => {
+  // If Supabase is not configured, there's nothing to migrate to
+  if (!isSupabaseConfigured()) {
     return false;
   }
-};
 
-// העברת נתונים מאחסון מקומי ל-Supabase
-export const migrateLocalDataToSupabase = async (userEmail: string, userName: string) => {
+  console.log(`[migrateLocalDataToSupabase] Checking if migration needed for user: ${userEmail}`);
+  
   try {
-    // If Supabase is not configured, show a warning message
-    if (!isSupabaseConfigured) {
-      console.warn('[migrateLocalDataToSupabase] Supabase is not properly configured. Unable to migrate local data.');
-      return false;
-    }
-
-    // בדיקה אם יש נתונים מקומיים לשמירה
-    const userKey = `audits_${userEmail}`;
-    const localData = localStorage.getItem(userKey);
+    // Check if we already migrated
+    const KEY_MIGRATED = `migrated_${userEmail}`;
+    const alreadyMigrated = localStorage.getItem(KEY_MIGRATED) === 'true';
     
-    if (!localData) {
-      console.log(`[migrateLocalDataToSupabase] No local data found for user: ${userEmail}`);
+    if (alreadyMigrated) {
+      console.log(`[migrateLocalDataToSupabase] Data already migrated for user: ${userEmail}`);
       return false;
     }
     
-    // המרת הנתונים המקומיים למבנה הנכון
-    const localAudits = JSON.parse(localData);
+    // Get local audits
+    const localAudits = getStoredAudits(userEmail);
     
-    if (!Array.isArray(localAudits) || localAudits.length === 0) {
-      console.log(`[migrateLocalDataToSupabase] No valid audits to migrate for user: ${userEmail}`);
+    if (!localAudits || localAudits.length === 0) {
+      console.log(`[migrateLocalDataToSupabase] No local audits found for user: ${userEmail}`);
+      localStorage.setItem(KEY_MIGRATED, 'true');
       return false;
     }
     
-    console.log(`[migrateLocalDataToSupabase] Found ${localAudits.length} audits to migrate`);
+    console.log(`[migrateLocalDataToSupabase] Found ${localAudits.length} local audits to migrate`);
     
-    // בדיקה אם כבר יש סקרים עבור המשתמש ב-Supabase
-    const { data: existingAudits, error: checkError } = await supabase
-      .from('audits')
-      .select('id')
-      .eq('ownerId', userEmail);
+    // Insert all local audits to Supabase
+    const { error } = await supabaseClient.from('audits').insert(localAudits);
     
-    if (checkError) {
-      console.error('[migrateLocalDataToSupabase] Error checking existing audits:', checkError);
+    if (error) {
+      console.error("[migrateLocalDataToSupabase] Migration error:", error);
       return false;
     }
     
-    if (existingAudits && existingAudits.length > 0) {
-      console.log(`[migrateLocalDataToSupabase] User already has ${existingAudits.length} audits in Supabase, skipping migration`);
-      return false;
-    }
+    // Mark as migrated
+    localStorage.setItem(KEY_MIGRATED, 'true');
+    console.log(`[migrateLocalDataToSupabase] Successfully migrated ${localAudits.length} audits for user: ${userEmail}`);
     
-    // העברת כל הסקרים המקומיים ל-Supabase
-    let migratedCount = 0;
-    
-    for (const audit of localAudits) {
-      try {
-        // יצירת הסקר
-        const { error: auditError } = await supabase.from('audits').insert({
-          id: audit.id,
-          name: audit.name,
-          description: audit.description || '',
-          clientName: audit.clientName || '',
-          receivedDate: audit.receivedDate ? new Date(audit.receivedDate).toISOString() : new Date().toISOString(),
-          plannedMeetingDate: audit.plannedMeetingDate ? new Date(audit.plannedMeetingDate).toISOString() : null,
-          currentStatus: audit.currentStatus || 'התקבל',
-          ownerId: userEmail,
-          ownerName: userName
-        });
-        
-        if (auditError) {
-          console.error(`[migrateLocalDataToSupabase] Error migrating audit ${audit.id}:`, auditError);
-          continue;
-        }
-        
-        // העברת יומן הסטטוסים
-        if (audit.statusLog && Array.isArray(audit.statusLog)) {
-          const statusLogs = audit.statusLog.map((log: any) => ({
-            id: log.id || crypto.randomUUID(),
-            auditId: audit.id,
-            timestamp: log.timestamp ? new Date(log.timestamp).toISOString() : new Date().toISOString(),
-            oldStatus: log.oldStatus,
-            newStatus: log.newStatus,
-            oldDate: log.oldDate ? new Date(log.oldDate).toISOString() : null,
-            newDate: log.newDate ? new Date(log.newDate).toISOString() : null,
-            reason: log.reason || 'עדכון סטטוס',
-            modifiedBy: log.modifiedBy || userName
-          }));
-          
-          const { error: logsError } = await supabase.from('status_logs').insert(statusLogs);
-          
-          if (logsError) {
-            console.error(`[migrateLocalDataToSupabase] Error migrating status logs for audit ${audit.id}:`, logsError);
-          }
-        }
-        
-        // העברת אנשי הקשר
-        if (audit.contacts && Array.isArray(audit.contacts)) {
-          const contacts = audit.contacts.map((contact: any) => ({
-            id: contact.id || crypto.randomUUID(),
-            auditId: audit.id,
-            fullName: contact.fullName,
-            role: contact.role || '',
-            email: contact.email || '',
-            phone: contact.phone || '',
-            gender: contact.gender || 'other'
-          }));
-          
-          const { error: contactsError } = await supabase.from('contacts').insert(contacts);
-          
-          if (contactsError) {
-            console.error(`[migrateLocalDataToSupabase] Error migrating contacts for audit ${audit.id}:`, contactsError);
-          }
-        }
-        
-        migratedCount++;
-        
-      } catch (auditError) {
-        console.error(`[migrateLocalDataToSupabase] Error processing audit ${audit.id}:`, auditError);
-      }
-    }
-    
-    console.log(`[migrateLocalDataToSupabase] Successfully migrated ${migratedCount} of ${localAudits.length} audits`);
-    
-    if (migratedCount > 0) {
-      toast.success(`הנתונים הועברו בהצלחה ל-Supabase (${migratedCount} סקרים)`);
-      return true;
-    } else {
-      return false;
-    }
-    
+    return true;
   } catch (error) {
-    console.error('[migrateLocalDataToSupabase] Migration error:', error);
-    toast.error('שגיאה בהעברת נתונים ל-Supabase');
+    console.error("[migrateLocalDataToSupabase] Error:", error);
     return false;
   }
 };
