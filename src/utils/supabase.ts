@@ -1,18 +1,30 @@
-
 import { createClient } from '@supabase/supabase-js';
 import { Audit, StatusType, Contact } from '@/types/types';
 import { toast } from 'sonner';
 
-// Initialize Supabase client
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
+// Initialize Supabase client with dummy values if environment variables are not set
+// This prevents the app from crashing when Supabase is not configured
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://placeholder-url.supabase.co";
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "placeholder-key";
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// Create a flag to check if Supabase is properly configured
+export const isSupabaseConfigured = 
+  import.meta.env.VITE_SUPABASE_URL && 
+  import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 // פונקציות עזר לניהול הסקרים
 
 // קבלת כל הסקרים המותרים לפי הרשאות משתמש
 export const getAudits = async (userEmail: string, role: string) => {
   try {
+    // If Supabase is not configured, return an empty array
+    if (!isSupabaseConfigured) {
+      console.warn('[getAudits] Supabase is not properly configured. Returning empty array.');
+      return [];
+    }
+    
     let query = supabase.from('audits').select(`
       *,
       contacts(*),
@@ -61,6 +73,13 @@ export const getAudits = async (userEmail: string, role: string) => {
 // יצירת סקר חדש
 export const createNewAudit = async (auditData: Partial<Audit>, userEmail: string, userName: string) => {
   try {
+    // If Supabase is not configured, show a warning message
+    if (!isSupabaseConfigured) {
+      console.warn('[createNewAudit] Supabase is not properly configured. Unable to create audit.');
+      toast.error('שגיאת תצורה: לא ניתן ליצור סקר חדש');
+      throw new Error('Supabase is not properly configured');
+    }
+
     // יצירת מזהה ייחודי (אם לא סופק)
     const auditId = auditData.id || crypto.randomUUID();
     
@@ -150,6 +169,13 @@ export const createNewAudit = async (auditData: Partial<Audit>, userEmail: strin
 // עדכון סקר קיים
 export const updateExistingAudit = async (auditId: string, auditData: Partial<Audit>, userName: string) => {
   try {
+    // If Supabase is not configured, show a warning message
+    if (!isSupabaseConfigured) {
+      console.warn('[updateExistingAudit] Supabase is not properly configured. Unable to update audit.');
+      toast.error('שגיאת תצורה: לא ניתן לעדכן את הסקר');
+      throw new Error('Supabase is not properly configured');
+    }
+
     // עדכון רשומת הסקר
     const { error: auditError } = await supabase
       .from('audits')
@@ -221,9 +247,16 @@ export const updateExistingAudit = async (auditId: string, auditData: Partial<Au
 // מחיקת סקר
 export const deleteAuditById = async (auditId: string) => {
   try {
-    // מחיקת האנשי קשר (יימחקו אוטומטית בזכות CASCADE constraints)
+    // If Supabase is not configured, show a warning message
+    if (!isSupabaseConfigured) {
+      console.warn('[deleteAuditById] Supabase is not properly configured. Unable to delete audit.');
+      toast.error('שגיאת תצורה: לא ניתן למחוק את הסקר');
+      return false;
+    }
+
+    // מחיקת האנשי קשר (יימחקו אוטומatically בזכות CASCADE constraints)
     
-    // מחיקת יומן הסטטוסים (יימחקו אוטומטית בזכות CASCADE constraints)
+    // מחיקת יומן הסטטוסים (יימחקו אוטומatically בזכות CASCADE constraints)
     
     // מחיקת הסקר עצמו
     const { error } = await supabase.from('audits').delete().eq('id', auditId);
@@ -242,6 +275,13 @@ export const deleteAuditById = async (auditId: string) => {
 // עדכון סטטוס סקר
 export const updateAuditStatusInDb = async (auditId: string, newStatus: string, reason: string, userName: string, oldDate?: Date | null, newDate?: Date | null) => {
   try {
+    // If Supabase is not configured, show a warning message
+    if (!isSupabaseConfigured) {
+      console.warn('[updateAuditStatusInDb] Supabase is not properly configured. Unable to update audit status.');
+      toast.error('שגיאת תצורה: לא ניתן לעדכן את סטטוס הסקר');
+      return false;
+    }
+
     // קבלת הסטטוס הנוכחי
     const { data: currentAuditData, error: fetchError } = await supabase
       .from('audits')
@@ -297,8 +337,12 @@ export const updateAuditStatusInDb = async (auditId: string, newStatus: string, 
 // העברת נתונים מאחסון מקומי ל-Supabase
 export const migrateLocalDataToSupabase = async (userEmail: string, userName: string) => {
   try {
-    console.log(`[migrateLocalDataToSupabase] Starting migration for user: ${userEmail}`);
-    
+    // If Supabase is not configured, show a warning message
+    if (!isSupabaseConfigured) {
+      console.warn('[migrateLocalDataToSupabase] Supabase is not properly configured. Unable to migrate local data.');
+      return false;
+    }
+
     // בדיקה אם יש נתונים מקומיים לשמירה
     const userKey = `audits_${userEmail}`;
     const localData = localStorage.getItem(userKey);

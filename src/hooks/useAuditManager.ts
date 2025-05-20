@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Audit, User, StatusType } from '@/types/types';
 import { toast } from 'sonner';
@@ -7,7 +8,8 @@ import {
   updateExistingAudit, 
   deleteAuditById,
   updateAuditStatusInDb,
-  migrateLocalDataToSupabase
+  migrateLocalDataToSupabase,
+  isSupabaseConfigured
 } from '@/utils/supabase';
 
 export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
@@ -32,6 +34,14 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
       try {
         setLoading(true);
         
+        // Check if Supabase is configured
+        if (!isSupabaseConfigured) {
+          console.log("[useAuditManager] Supabase is not configured, using initial audits");
+          setAudits(initialAudits);
+          setLoading(false);
+          return;
+        }
+
         // בדיקה אם נדרשת העברת נתונים מקומיים ל-Supabase
         const dataMigrated = await migrateLocalDataToSupabase(user.email, user.name);
         

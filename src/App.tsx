@@ -20,9 +20,15 @@ const App = () => {
 
   useEffect(() => {
     // Check if user is logged in
-    const user = getCurrentUser();
-    setIsAuthenticated(!!user);
-    setIsLoading(false);
+    try {
+      const user = getCurrentUser();
+      setIsAuthenticated(!!user);
+    } catch (error) {
+      console.error("[App] Error checking authentication status:", error);
+      setIsAuthenticated(false);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
   // Create a protected route component
