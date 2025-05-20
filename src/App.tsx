@@ -21,7 +21,9 @@ const App = () => {
   useEffect(() => {
     // Check if user is logged in
     try {
+      console.log("[App] Checking authentication status");
       const user = getCurrentUser();
+      console.log("[App] User from localStorage:", user);
       setIsAuthenticated(!!user);
     } catch (error) {
       console.error("[App] Error checking authentication status:", error);
@@ -37,7 +39,9 @@ const App = () => {
       return <div className="min-h-screen flex items-center justify-center" dir="rtl">טוען...</div>;
     }
     
+    console.log("[ProtectedRoute] isAuthenticated:", isAuthenticated);
     if (!isAuthenticated) {
+      console.log("[ProtectedRoute] Not authenticated, redirecting to /");
       return <Navigate to="/" replace />;
     }
 

@@ -39,6 +39,7 @@ export const useAuthManager = () => {
         
         // התנתקות מהמערכת
         logoutUser();
+        setUser(null);
         toast.success("התנתקת בהצלחה");
         navigate("/");
       } else {

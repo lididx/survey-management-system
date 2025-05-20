@@ -19,13 +19,6 @@ const loginSchema = z.object({
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
-// משתמשים לדוגמה במערכת
-const mockUsers = [
-  { email: "lidor@example.com", password: "password123", role: "בודק", name: "לידור" },
-  { email: "moran@example.com", password: "password123", role: "בודק", name: "מורן" },
-  { email: "chen@example.com", password: "password123", role: "מנהלת", name: "חן" }
-];
-
 const LoginForm = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -42,8 +35,10 @@ const LoginForm = () => {
   const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true);
     try {
+      console.log("Login attempt with:", data.email);
       // אימות באמצעות מערכת האימות המקומית
       const { success, user, error } = loginUser(data.email, data.password);
+      console.log("Login result:", { success, user, error });
       
       if (!success || error) {
         toast.error("פרטי התחברות שגויים", {
@@ -54,7 +49,9 @@ const LoginForm = () => {
         toast.success("התחברת בהצלחה", {
           description: `ברוך הבא ${user?.name}! מועבר לדף הבית...`,
         });
-        navigate("/dashboard");
+        setTimeout(() => {
+          navigate("/dashboard");
+        }, 500);
       }
     } catch (error) {
       console.error("Login error:", error);

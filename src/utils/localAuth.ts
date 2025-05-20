@@ -103,17 +103,22 @@ export const registerUser = (email: string, password: string, name: string, role
 
 // Login user
 export const loginUser = (email: string, password: string): { success: boolean; user?: User; error?: string } => {
+  console.log(`[localAuth] Login attempt for email: ${email}`);
   const users = getUsers();
   const user = users.find(u => u.email === email);
   
   if (!user) {
+    console.log(`[localAuth] User not found: ${email}`);
     return { 
       success: false, 
       error: "משתמש לא נמצא" 
     };
   }
   
-  if (!verifyPassword(user.password, password)) {
+  const passwordValid = verifyPassword(user.password, password);
+  console.log(`[localAuth] Password valid: ${passwordValid}`);
+  
+  if (!passwordValid) {
     return { 
       success: false, 
       error: "סיסמה שגויה" 
@@ -128,6 +133,7 @@ export const loginUser = (email: string, password: string): { success: boolean; 
   };
   
   localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(currentUser));
+  console.log(`[localAuth] User logged in successfully: ${email}`);
   
   return { 
     success: true, 
@@ -138,11 +144,14 @@ export const loginUser = (email: string, password: string): { success: boolean; 
 // Check if user is logged in
 export const getCurrentUser = (): User | null => {
   const userJson = localStorage.getItem(CURRENT_USER_KEY);
-  return userJson ? JSON.parse(userJson) : null;
+  const user = userJson ? JSON.parse(userJson) : null;
+  console.log("[localAuth] getCurrentUser:", user);
+  return user;
 };
 
 // Logout user
 export const logoutUser = (): void => {
+  console.log("[localAuth] Logging out user");
   localStorage.removeItem(CURRENT_USER_KEY);
 };
 
