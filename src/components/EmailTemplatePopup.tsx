@@ -135,28 +135,60 @@ export const EmailTemplatePopup = ({
     toast.success("כל תוכן המייל הועתק ללוח");
   };
 
-  // Send email via default email client (Outlook)
+  // Send email via default email client (Outlook) - Fixed version
   const handleSendEmail = () => {
     if (!audit.contacts || audit.contacts.length === 0) {
       toast.error("לא נמצאו אנשי קשר לשליחת המייל");
       return;
     }
 
+    console.log("Starting email send process...");
+    
     // Get recipient email addresses
-    const recipients = audit.contacts.map(contact => contact.email).join(";");
+    const recipients = audit.contacts.map(contact => contact.email).filter(email => email).join(";");
+    
+    if (!recipients) {
+      toast.error("לא נמצאו כתובות מייל תקינות");
+      return;
+    }
 
-    // Create mailto URL with recipients, subject and body
-    const mailtoUrl = `mailto:${recipients}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+    console.log("Recipients:", recipients);
 
-    // Try to open the email client
     try {
-      const link = document.createElement('a');
-      link.href = mailtoUrl;
-      link.click();
+      // Try the direct mailto approach first
+      const mailtoUrl = `mailto:${recipients}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+      
+      console.log("Mailto URL length:", mailtoUrl.length);
+      
+      // Check if URL is too long (most browsers limit around 2000 characters)
+      if (mailtoUrl.length > 2000) {
+        console.log("URL too long, using fallback method");
+        // Fallback: copy everything to clipboard
+        const fullContent = `נמענים: ${recipients}\nנושא: ${emailSubject}\n\n${emailBody}`;
+        navigator.clipboard.writeText(fullContent);
+        toast.success("המייל ארוך מדי לפתיחה אוטומטית - התוכן הועתק ללוח");
+        return;
+      }
+
+      // Create a temporary link element
+      const tempLink = document.createElement('a');
+      tempLink.href = mailtoUrl;
+      tempLink.style.display = 'none';
+      document.body.appendChild(tempLink);
+      
+      console.log("Attempting to open email client...");
+      tempLink.click();
+      
+      // Clean up
+      document.body.removeChild(tempLink);
+      
       toast.success("המייל נפתח ביישום המייל שלך");
+      
     } catch (error) {
+      console.error("Error opening email client:", error);
       // Fallback - copy to clipboard if mailto fails
-      navigator.clipboard.writeText(`נמענים: ${recipients}\nנושא: ${emailSubject}\n\n${emailBody}`);
+      const fullContent = `נמענים: ${recipients}\nנושא: ${emailSubject}\n\n${emailBody}`;
+      navigator.clipboard.writeText(fullContent);
       toast.error("לא ניתן לפתוח יישום מייל - התוכן הועתק ללוח");
     }
   };
