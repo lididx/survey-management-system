@@ -15,7 +15,8 @@ import {
   ChevronUp, 
   Mail,
   Trash2,
-  UserCircle 
+  UserCircle,
+  MessageCircle
 } from "lucide-react";
 import { Audit, StatusType } from "@/types/types";
 import { StatusLogView } from "@/components/StatusLogView";
@@ -85,6 +86,14 @@ export const AuditsTable = ({
   const formatDate = (date: Date) => {
     if (!date) return "";
     return new Date(date).toLocaleDateString("he-IL");
+  };
+
+  const handleWhatsAppClick = (phone: string, contactName: string) => {
+    // Clean the phone number and format it for WhatsApp
+    const cleanPhone = phone.replace(/[^\d]/g, '');
+    const whatsappUrl = `https://wa.me/972${cleanPhone.startsWith('0') ? cleanPhone.substring(1) : cleanPhone}`;
+    window.open(whatsappUrl, '_blank');
+    toast.success(`נפתח WhatsApp עבור ${contactName}`);
   };
   
   const getStatusBadge = (status: StatusType, audit: Audit) => {
@@ -179,6 +188,7 @@ export const AuditsTable = ({
             <TableHead className="p-4 font-medium text-center">שם לקוח</TableHead>
             <TableHead className="p-4 font-medium text-center">תאריך פגישה</TableHead>
             <TableHead className="p-4 font-medium text-center">יוצר הסקר</TableHead>
+            <TableHead className="p-4 font-medium text-center">אנשי קשר</TableHead>
             <TableHead className="p-4 font-medium text-center">פעולות</TableHead>
           </TableRow>
         </TableHeader>
@@ -199,6 +209,29 @@ export const AuditsTable = ({
                     <div className="flex items-center justify-center gap-1">
                       <UserCircle className="h-4 w-4 text-gray-400" />
                       <span>{audit.ownerName || "לא ידוע"}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="p-4 text-center">
+                    <div className="flex flex-col gap-1">
+                      {audit.contacts && audit.contacts.length > 0 ? (
+                        audit.contacts.map((contact, index) => (
+                          <div key={index} className="flex items-center justify-center gap-2">
+                            <span className="text-sm">{contact.fullName}</span>
+                            {contact.phone && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleWhatsAppClick(contact.phone, contact.fullName)}
+                                className="h-6 w-6 p-0"
+                              >
+                                <MessageCircle className="h-3 w-3 text-green-600" />
+                              </Button>
+                            )}
+                          </div>
+                        ))
+                      ) : (
+                        <span className="text-gray-500 text-sm">אין אנשי קשר</span>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell className="p-4">
@@ -241,7 +274,7 @@ export const AuditsTable = ({
                 </TableRow>
                 {expandedAuditId === audit.id && (
                   <TableRow>
-                    <TableCell colSpan={6} className="p-4 bg-gray-50">
+                    <TableCell colSpan={7} className="p-4 bg-gray-50">
                       <StatusLogView statusLog={audit.statusLog} />
                     </TableCell>
                   </TableRow>
@@ -250,7 +283,7 @@ export const AuditsTable = ({
             ))
           ) : (
             <TableRow>
-              <TableCell colSpan={6} className="text-center py-4">
+              <TableCell colSpan={7} className="text-center py-4">
                 {isArchive ? "אין סקרים בארכיון" : "לא נמצאו סקרים"}
               </TableCell>
             </TableRow>

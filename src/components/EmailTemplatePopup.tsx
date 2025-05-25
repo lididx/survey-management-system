@@ -135,7 +135,7 @@ export const EmailTemplatePopup = ({
     toast.success("כל תוכן המייל הועתק ללוח");
   };
 
-  // Send email via Outlook
+  // Send email via default email client (Outlook)
   const handleSendEmail = () => {
     if (!audit.contacts || audit.contacts.length === 0) {
       toast.error("לא נמצאו אנשי קשר לשליחת המייל");
@@ -148,9 +148,17 @@ export const EmailTemplatePopup = ({
     // Create mailto URL with recipients, subject and body
     const mailtoUrl = `mailto:${recipients}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
 
-    // Open the email client
-    window.open(mailtoUrl, "_blank");
-    toast.success("המייל נפתח ב-Outlook");
+    // Try to open the email client
+    try {
+      const link = document.createElement('a');
+      link.href = mailtoUrl;
+      link.click();
+      toast.success("המייל נפתח ביישום המייל שלך");
+    } catch (error) {
+      // Fallback - copy to clipboard if mailto fails
+      navigator.clipboard.writeText(`נמענים: ${recipients}\nנושא: ${emailSubject}\n\n${emailBody}`);
+      toast.error("לא ניתן לפתוח יישום מייל - התוכן הועתק ללוח");
+    }
   };
 
   return (
@@ -199,7 +207,7 @@ export const EmailTemplatePopup = ({
               className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
             >
               <Mail className="h-4 w-4" />
-              שלח באמצעות Outlook
+              פתח ב-Outlook
             </Button>
           </div>
         </div>
