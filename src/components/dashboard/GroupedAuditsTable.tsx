@@ -170,6 +170,9 @@ export const GroupedAuditsTable = ({
                           alt={`${clientName} לוגו`}
                           className="h-8 w-auto object-contain"
                         />
+                        {clientName === "בנק ישראל" && (
+                          <span className="text-lg font-medium">בנק ישראל</span>
+                        )}
                         <span className="text-sm text-gray-500">({clientAudits.length} סקרים)</span>
                       </div>
                     ) : (
