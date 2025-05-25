@@ -40,6 +40,7 @@ export interface Audit {
   contacts: Contact[];
   receivedDate: Date;
   plannedMeetingDate: Date | null;
+  existingMeetingDate?: Date | null; // Optional pre-existing meeting date
   currentStatus: StatusType;
   statusLog: StatusChange[];
   ownerId: string;

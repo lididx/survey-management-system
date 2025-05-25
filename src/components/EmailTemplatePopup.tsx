@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -27,6 +28,8 @@ export const EmailTemplatePopup = ({
     const userData = localStorage.getItem("user");
     const currentUser = userData ? JSON.parse(userData) : {};
     const surveyorName = currentUser.name || "";
+    
+    // Determine surveyor gender based on name - Lidor is male, Moran is female
     const surveyorGender = currentUser.name === "מורן" ? "female" : "male";
     
     // Set email subject - new format as requested
@@ -88,7 +91,7 @@ export const EmailTemplatePopup = ({
         }
       }
       
-      // Determine surveyor text (male/female)
+      // Determine surveyor text (male/female) - fixed for Lidor
       const surveyorText = surveyorGender === "female" ? "סוקרת" : "סוקר";
       
       setEmailBody(`${greeting},

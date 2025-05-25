@@ -18,7 +18,7 @@ import { Audit, StatusType } from "@/types/types";
 import { AuditForm } from "@/components/AuditForm";
 import { EmailTemplatePopup } from "@/components/EmailTemplatePopup";
 import { StatusCards } from "@/components/dashboard/StatusCards";
-import { AuditsTable } from "@/components/dashboard/AuditsTable";
+import { GroupedAuditsTable } from "@/components/dashboard/GroupedAuditsTable";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { useAuthManager } from "@/hooks/useAuthManager";
 import { useAuditPermissions } from "@/hooks/useAuditPermissions";
@@ -147,10 +147,10 @@ const Dashboard = () => {
 
         <Card className="mt-8">
           <CardHeader>
-            <CardTitle>רשימת סקרים</CardTitle>
+            <CardTitle>רשימת סקרים מקובצת לפי לקוח</CardTitle>
           </CardHeader>
           <CardContent>
-            <AuditsTable 
+            <GroupedAuditsTable 
               audits={displayedAudits}
               userRole={user.role}
               canEdit={canEdit}

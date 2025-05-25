@@ -16,63 +16,32 @@ interface ContactFormProps {
 export const ContactForm = ({ contacts, setContacts }: ContactFormProps) => {
   const [newContact, setNewContact] = useState<Contact>({
     id: crypto.randomUUID(),
-    fullName: "", // Add the required fullName property
+    fullName: "",
     firstName: "",
     lastName: "",
     role: "",
     email: "",
     phone: "",
-    gender: "male" // Default gender
+    gender: "male"
   });
-  
-  const [errors, setErrors] = useState<{
-    firstName?: string;
-    lastName?: string;
-    email?: string;
-    phone?: string;
-  }>({});
-
-  const validateContact = () => {
-    const newErrors: {
-      firstName?: string;
-      lastName?: string;
-      email?: string;
-      phone?: string;
-    } = {};
-    
-    if (!newContact.firstName?.trim()) {
-      newErrors.firstName = "שם פרטי הוא שדה חובה";
-    }
-    
-    if (!newContact.lastName?.trim()) {
-      newErrors.lastName = "שם משפחה הוא שדה חובה";
-    }
-    
-    if (!newContact.email.trim()) {
-      newErrors.email = "אימייל הוא שדה חובה";
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newContact.email)) {
-      newErrors.email = "פורמט אימייל לא תקין";
-    }
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
 
   const handleAddContact = () => {
-    if (!validateContact()) {
+    // Basic validation - at least name or email should be provided
+    if (!newContact.firstName?.trim() && !newContact.email?.trim()) {
+      toast.error("יש להזין לפחות שם פרטי או אימייל");
       return;
     }
     
     // Set the fullName based on firstName and lastName
     const fullContact = {
       ...newContact,
-      fullName: `${newContact.firstName || ''} ${newContact.lastName || ''}`.trim()
+      fullName: `${newContact.firstName || ''} ${newContact.lastName || ''}`.trim() || newContact.email
     };
     
     setContacts([...contacts, fullContact]);
     setNewContact({
       id: crypto.randomUUID(),
-      fullName: "", // Include the required fullName property
+      fullName: "",
       firstName: "",
       lastName: "",
       role: "",
@@ -80,7 +49,6 @@ export const ContactForm = ({ contacts, setContacts }: ContactFormProps) => {
       phone: "",
       gender: "male"
     });
-    setErrors({});
     toast.success("איש קשר נוסף בהצלחה");
   };
 
@@ -146,30 +114,22 @@ export const ContactForm = ({ contacts, setContacts }: ContactFormProps) => {
         <div className="grid grid-cols-1 gap-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label htmlFor="firstName">שם פרטי *</Label>
+              <Label htmlFor="firstName">שם פרטי</Label>
               <Input
                 id="firstName"
                 value={newContact.firstName || ''}
                 onChange={(e) => handleFirstNameChange(e.target.value)}
                 placeholder="שם פרטי"
-                className={errors.firstName ? "border-red-500" : ""}
               />
-              {errors.firstName && (
-                <p className="text-xs text-red-500">{errors.firstName}</p>
-              )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="lastName">שם משפחה *</Label>
+              <Label htmlFor="lastName">שם משפחה</Label>
               <Input
                 id="lastName"
                 value={newContact.lastName || ''}
                 onChange={(e) => handleLastNameChange(e.target.value)}
                 placeholder="שם משפחה"
-                className={errors.lastName ? "border-red-500" : ""}
               />
-              {errors.lastName && (
-                <p className="text-xs text-red-500">{errors.lastName}</p>
-              )}
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -183,18 +143,14 @@ export const ContactForm = ({ contacts, setContacts }: ContactFormProps) => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">אימייל *</Label>
+              <Label htmlFor="email">אימייל</Label>
               <Input
                 id="email"
                 type="email"
                 value={newContact.email}
                 onChange={(e) => setNewContact({...newContact, email: e.target.value})}
                 placeholder="אימייל"
-                className={errors.email ? "border-red-500" : ""}
               />
-              {errors.email && (
-                <p className="text-xs text-red-500">{errors.email}</p>
-              )}
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -208,7 +164,7 @@ export const ContactForm = ({ contacts, setContacts }: ContactFormProps) => {
               />
             </div>
             <div className="space-y-2">
-              <Label>מגדר *</Label>
+              <Label>מגדר</Label>
               <RadioGroup
                 value={newContact.gender}
                 onValueChange={(value) => setNewContact({...newContact, gender: value as ContactGender})}
