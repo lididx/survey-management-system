@@ -9,7 +9,7 @@ interface ClientNameSectionProps {
   onClientNameChange: (name: string) => void;
 }
 
-// Updated client names list
+// Updated client names list (removed "אחר")
 const clientNames = [
   "הראל",
   "מנורה",
@@ -22,22 +22,26 @@ const clientNames = [
   "מת\"ף",
   "בנק ירושלים",
   "בנק ישראל",
-  "הכשרה",
-  "אחר"
+  "הכשרה"
 ];
 
 export const ClientNameSection = ({
   clientName,
   onClientNameChange
 }: ClientNameSectionProps) => {
-  const [customClientName, setCustomClientName] = useState("");
+  const [useCustomInput, setUseCustomInput] = useState(!clientNames.includes(clientName || ""));
   
-  const handleClientNameChange = (value: string) => {
-    if (value === "אחר") {
-      setCustomClientName("");
-      return;
+  const handleSelectChange = (value: string) => {
+    if (value === "custom") {
+      setUseCustomInput(true);
+      onClientNameChange("");
+    } else {
+      setUseCustomInput(false);
+      onClientNameChange(value);
     }
-    
+  };
+
+  const handleCustomInputChange = (value: string) => {
     onClientNameChange(value);
   };
 
@@ -45,28 +49,41 @@ export const ClientNameSection = ({
     <div className="space-y-2">
       <Label htmlFor="clientName">שם לקוח *</Label>
       <div className="grid grid-cols-1 gap-2">
-        <Select 
-          value={clientNames.includes(clientName || "") ? clientName : "אחר"}
-          onValueChange={handleClientNameChange}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="בחר שם לקוח" />
-          </SelectTrigger>
-          <SelectContent>
-            {clientNames.map(name => (
-              <SelectItem key={name} value={name}>{name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {(clientName === "אחר" || (!clientNames.includes(clientName || "") && clientName)) && (
-          <Input
-            placeholder="הזן שם לקוח מותאם אישית"
-            value={customClientName}
-            onChange={(e) => {
-              setCustomClientName(e.target.value);
-              onClientNameChange(e.target.value);
-            }}
-          />
+        {!useCustomInput ? (
+          <Select 
+            value={clientNames.includes(clientName || "") ? clientName : "custom"}
+            onValueChange={handleSelectChange}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="בחר שם לקוח" />
+            </SelectTrigger>
+            <SelectContent>
+              {clientNames.map(name => (
+                <SelectItem key={name} value={name}>{name}</SelectItem>
+              ))}
+              <SelectItem value="custom">לקוח חדש...</SelectItem>
+            </SelectContent>
+          </Select>
+        ) : (
+          <div className="flex gap-2">
+            <Input
+              placeholder="הזן שם לקוח חדש"
+              value={clientName}
+              onChange={(e) => handleCustomInputChange(e.target.value)}
+              className="flex-1"
+            />
+            <Select value="custom" onValueChange={handleSelectChange}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {clientNames.map(name => (
+                  <SelectItem key={name} value={name}>{name}</SelectItem>
+                ))}
+                <SelectItem value="custom">לקוח חדש...</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         )}
       </div>
     </div>
