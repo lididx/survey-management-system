@@ -3,13 +3,13 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { ContactForm } from "@/components/ContactForm";
 import { Audit, StatusType, Contact, StatusChange, User } from "@/types/types";
 import { toast } from "sonner";
 import { StatusSection } from "@/components/audit-form/StatusSection";
 import { DateSection } from "@/components/audit-form/DateSection";
 import { ClientNameSection } from "@/components/audit-form/ClientNameSection";
+import { ScheduledDateSection } from "@/components/audit-form/ScheduledDateSection";
 
 interface AuditFormProps {
   audit?: Audit;
@@ -27,6 +27,7 @@ export const AuditForm = ({ audit, onSubmit, onCancel, mode, currentUser }: Audi
     contacts: [],
     receivedDate: new Date(),
     plannedMeetingDate: null,
+    scheduledDate: null,
     currentStatus: "התקבל",
     statusLog: [],
     ownerId: JSON.parse(localStorage.getItem("user") || "{}").id || ""
@@ -159,16 +160,10 @@ export const AuditForm = ({ audit, onSubmit, onCancel, mode, currentUser }: Audi
           onClientNameChange={(name) => handleInputChange("clientName", name)}
         />
         
-        <div className="space-y-2">
-          <Label htmlFor="description">תיאור מערכת</Label>
-          <Textarea
-            id="description"
-            value={formData.description}
-            onChange={(e) => handleInputChange("description", e.target.value)}
-            placeholder="הזן תיאור קצר של המערכת"
-            rows={3}
-          />
-        </div>
+        <ScheduledDateSection
+          scheduledDate={formData.scheduledDate}
+          onScheduledDateChange={(date) => handleInputChange("scheduledDate", date)}
+        />
 
         {mode === "edit" && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

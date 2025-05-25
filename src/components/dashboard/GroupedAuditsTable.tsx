@@ -10,7 +10,7 @@ import {
   SelectValue 
 } from "@/components/ui/select";
 import { ChevronDown, ChevronRight, ArrowUpDown } from "lucide-react";
-import { Audit, StatusType } from "@/types/types";
+import { Audit, StatusType, CLIENT_LOGOS } from "@/types/types";
 import { AuditsTable } from "./AuditsTable";
 
 interface GroupedAuditsTableProps {
@@ -105,6 +105,10 @@ export const GroupedAuditsTable = ({
     }
   };
 
+  const getClientLogo = (clientName: string) => {
+    return CLIENT_LOGOS[clientName] || null;
+  };
+
   return (
     <div className="space-y-4">
       {/* Filters */}
@@ -142,41 +146,56 @@ export const GroupedAuditsTable = ({
 
       {/* Grouped Audits */}
       <div className="space-y-4">
-        {Object.entries(groupedAudits).map(([clientName, clientAudits]) => (
-          <Card key={clientName} className="border">
-            <CardHeader 
-              className="cursor-pointer hover:bg-gray-50 transition-colors"
-              onClick={() => toggleClientExpansion(clientName)}
-            >
-              <CardTitle className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  {expandedClients.has(clientName) ? (
-                    <ChevronDown className="h-4 w-4" />
-                  ) : (
-                    <ChevronRight className="h-4 w-4" />
-                  )}
-                  <span>{clientName}</span>
-                  <span className="text-sm text-gray-500">({clientAudits.length} סקרים)</span>
-                </div>
-              </CardTitle>
-            </CardHeader>
-            
-            {expandedClients.has(clientName) && (
-              <CardContent>
-                <AuditsTable
-                  audits={clientAudits}
-                  userRole={userRole}
-                  canEdit={canEdit}
-                  canDelete={canDelete}
-                  onEditAudit={onEditAudit}
-                  onDeleteAudit={onDeleteAudit}
-                  onEmailClick={onEmailClick}
-                  onStatusChange={onStatusChange}
-                />
-              </CardContent>
-            )}
-          </Card>
-        ))}
+        {Object.entries(groupedAudits).map(([clientName, clientAudits]) => {
+          const clientLogo = getClientLogo(clientName);
+          
+          return (
+            <Card key={clientName} className="border">
+              <CardHeader 
+                className="cursor-pointer hover:bg-gray-50 transition-colors"
+                onClick={() => toggleClientExpansion(clientName)}
+              >
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    {expandedClients.has(clientName) ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4" />
+                    )}
+                    
+                    {clientLogo && (
+                      <img 
+                        src={clientLogo} 
+                        alt={`${clientName} לוגו`}
+                        className="h-8 w-auto object-contain"
+                      />
+                    )}
+                    
+                    <div className="flex items-center gap-2">
+                      <span>{clientName}</span>
+                      <span className="text-sm text-gray-500">({clientAudits.length} סקרים)</span>
+                    </div>
+                  </div>
+                </CardTitle>
+              </CardHeader>
+              
+              {expandedClients.has(clientName) && (
+                <CardContent>
+                  <AuditsTable
+                    audits={clientAudits}
+                    userRole={userRole}
+                    canEdit={canEdit}
+                    canDelete={canDelete}
+                    onEditAudit={onEditAudit}
+                    onDeleteAudit={onDeleteAudit}
+                    onEmailClick={onEmailClick}
+                    onStatusChange={onStatusChange}
+                  />
+                </CardContent>
+              )}
+            </Card>
+          );
+        })}
         
         {Object.keys(groupedAudits).length === 0 && (
           <div className="text-center py-8 text-gray-500">
