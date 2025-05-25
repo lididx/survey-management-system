@@ -163,18 +163,21 @@ export const GroupedAuditsTable = ({
                       <ChevronRight className="h-4 w-4" />
                     )}
                     
-                    {clientLogo && (
-                      <img 
-                        src={clientLogo} 
-                        alt={`${clientName} לוגו`}
-                        className="h-8 w-auto object-contain"
-                      />
+                    {clientLogo ? (
+                      <div className="flex items-center gap-2">
+                        <img 
+                          src={clientLogo} 
+                          alt={`${clientName} לוגו`}
+                          className="h-8 w-auto object-contain"
+                        />
+                        <span className="text-sm text-gray-500">({clientAudits.length} סקרים)</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span>{clientName}</span>
+                        <span className="text-sm text-gray-500">({clientAudits.length} סקרים)</span>
+                      </div>
                     )}
-                    
-                    <div className="flex items-center gap-2">
-                      <span>{clientName}</span>
-                      <span className="text-sm text-gray-500">({clientAudits.length} סקרים)</span>
-                    </div>
                   </div>
                 </CardTitle>
               </CardHeader>
