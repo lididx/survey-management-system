@@ -6,7 +6,7 @@ import { Search, Archive } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Audit, StatusType } from "@/types/types";
 import { AuditsTable } from "@/components/dashboard/AuditsTable";
-import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
+import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { useAuthManager } from "@/hooks/useAuthManager";
 import { useAuditPermissions } from "@/hooks/useAuditPermissions";
 import { useAuditManager } from "@/hooks/useAuditManager";

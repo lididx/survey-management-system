@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { StatusCards } from "@/components/dashboard/StatusCards";
 import { GroupedAuditsTable } from "@/components/dashboard/GroupedAuditsTable";
-import AuditForm from "@/components/AuditForm";
+import { AuditForm } from "@/components/AuditForm";
 import { getStoredAudits } from "@/utils/auditStorage";
 import { Audit } from "@/types/types";
 import { useAuthManager } from "@/hooks/useAuthManager";
@@ -84,16 +84,19 @@ const Dashboard = () => {
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           <StatusCards 
-            audits={audits} 
-            onNewAudit={() => setShowAuditForm(true)} 
+            audits={audits}
           />
           
           <div className="mt-8">
             <GroupedAuditsTable
               audits={audits}
-              onEdit={handleEditAudit}
-              onDelete={handleDeleteAudit}
-              onRefresh={refreshAudits}
+              userRole={currentUser?.role || "בודק"}
+              canEdit={(auditOwnerId: string) => true}
+              canDelete={(auditOwnerId: string) => true}
+              onEditAudit={handleEditAudit}
+              onDeleteAudit={handleDeleteAudit}
+              onEmailClick={() => {}}
+              onStatusChange={() => {}}
             />
           </div>
         </div>

@@ -41,7 +41,7 @@ import {
   X,
   Eye
 } from "lucide-react";
-import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
+import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { useAuthManager } from "@/hooks/useAuthManager";
 import { 
   getUsers, 
