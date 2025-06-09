@@ -2,16 +2,16 @@
 import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
-import StatusCards from "@/components/dashboard/StatusCards";
-import GroupedAuditsTable from "@/components/dashboard/GroupedAuditsTable";
+import { StatusCards } from "@/components/dashboard/StatusCards";
+import { GroupedAuditsTable } from "@/components/dashboard/GroupedAuditsTable";
 import AuditForm from "@/components/AuditForm";
-import { getAllAudits } from "@/utils/auditStorage";
+import { getStoredAudits } from "@/utils/auditStorage";
 import { Audit } from "@/types/types";
 import { useAuthManager } from "@/hooks/useAuthManager";
 import { getCurrentUser } from "@/utils/localAuth";
 
 const Dashboard = () => {
-  const [audits, setAudits] = useState<Audit[]>(getAllAudits());
+  const [audits, setAudits] = useState<Audit[]>(getStoredAudits(null));
   const [showAuditForm, setShowAuditForm] = useState(false);
   const [editingAudit, setEditingAudit] = useState<Audit | null>(null);
   const navigate = useNavigate();
@@ -19,7 +19,7 @@ const Dashboard = () => {
   const currentUser = getCurrentUser();
 
   const refreshAudits = useCallback(() => {
-    setAudits(getAllAudits());
+    setAudits(getStoredAudits(null));
   }, []);
 
   const handleFormSuccess = () => {

@@ -29,12 +29,12 @@ const NotificationsSidebar: React.FC<NotificationsSidebarProps> = ({ onNotificat
   };
 
   const getNotificationText = (audit: any) => {
-    const timeAgo = formatDistanceToNow(new Date(audit.lastUpdate || audit.auditDate), {
+    const timeAgo = formatDistanceToNow(new Date(audit.lastUpdate || audit.receivedDate), {
       addSuffix: true,
       locale: he
     });
     
-    return `סקר ${audit.clientName} בסטטוס "${audit.status}" כבר ${timeAgo}`;
+    return `סקר ${audit.clientName} בסטטוס "${audit.currentStatus}" כבר ${timeAgo}`;
   };
 
   return (
@@ -74,7 +74,7 @@ const NotificationsSidebar: React.FC<NotificationsSidebarProps> = ({ onNotificat
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-start gap-3 flex-1">
-                    {getNotificationIcon(audit.status)}
+                    {getNotificationIcon(audit.currentStatus)}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground">
                         {audit.clientName}
@@ -83,7 +83,7 @@ const NotificationsSidebar: React.FC<NotificationsSidebarProps> = ({ onNotificat
                         {getNotificationText(audit)}
                       </p>
                       <Badge variant="outline" className="mt-2 text-xs">
-                        {audit.status}
+                        {audit.currentStatus}
                       </Badge>
                     </div>
                   </div>

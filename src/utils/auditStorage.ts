@@ -258,6 +258,11 @@ export const getStoredAudits = (userEmail: string | null): Audit[] => {
   }
 };
 
+// Export getAllAudits as an alias for getStoredAudits for backward compatibility
+export const getAllAudits = (): Audit[] => {
+  return getStoredAudits(null);
+};
+
 export const saveAuditsToStorage = (userEmail: string | null, audits: Audit[]) => {
   try {
     // Validate input data

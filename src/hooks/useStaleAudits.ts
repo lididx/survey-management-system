@@ -1,7 +1,8 @@
 
 import { useState, useEffect } from 'react';
-import { getAllAudits } from '@/utils/auditStorage';
+import { getStoredAudits } from '@/utils/auditStorage';
 import { Audit } from '@/types/types';
+import { getCurrentUser } from '@/utils/localAuth';
 
 const DISMISSED_NOTIFICATIONS_KEY = 'dismissed_notifications';
 
@@ -19,7 +20,8 @@ export const useStaleAudits = () => {
 
   useEffect(() => {
     const checkStaleAudits = () => {
-      const audits = getAllAudits();
+      const user = getCurrentUser();
+      const audits = getStoredAudits(user?.email || null);
       const now = new Date();
       const staleThreshold = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
       
@@ -30,11 +32,11 @@ export const useStaleAudits = () => {
         }
 
         // Check if audit is in a status that should trigger notifications
-        const shouldNotify = ['בביצוע', 'ממתין לאישור', 'בתהליך'].includes(audit.status);
+        const shouldNotify = ['בכתיבה', 'נקבע', 'שאלות השלמה מול מנהל מערכת', 'בבקרה'].includes(audit.currentStatus);
         if (!shouldNotify) return false;
 
         // Check if it's been too long since last update
-        const lastUpdate = audit.lastUpdate ? new Date(audit.lastUpdate) : new Date(audit.auditDate);
+        const lastUpdate = audit.receivedDate;
         const timeDiff = now.getTime() - lastUpdate.getTime();
         
         return timeDiff > staleThreshold;
