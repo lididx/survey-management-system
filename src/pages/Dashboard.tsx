@@ -63,11 +63,13 @@ const Dashboard = () => {
       <div className="min-h-screen bg-gray-50" dir="rtl">
         <AuditForm
           audit={editingAudit}
-          onSuccess={handleFormSuccess}
+          onSubmit={handleFormSuccess}
           onCancel={() => {
             setShowAuditForm(false);
             setEditingAudit(null);
           }}
+          mode={editingAudit ? "edit" : "create"}
+          currentUser={currentUser}
         />
       </div>
     );
@@ -85,6 +87,8 @@ const Dashboard = () => {
         <div className="px-4 py-6 sm:px-0">
           <StatusCards 
             audits={audits}
+            userRole={currentUser?.role || "בודק"}
+            userEmail={currentUser?.email}
           />
           
           <div className="mt-8">

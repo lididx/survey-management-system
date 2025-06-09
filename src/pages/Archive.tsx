@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -53,7 +52,11 @@ const ArchivePage = () => {
 
   return (
     <div className="min-h-screen bg-gray-100" dir="rtl">
-      <DashboardHeader user={user} onLogout={handleLogout} isArchive={true} />
+      <DashboardHeader
+        onNavigateToArchive={() => {}}
+        onNavigateToAdmin={() => {}}
+        onNotificationClick={() => {}}
+      />
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex justify-between items-center flex-wrap gap-4 mb-6">

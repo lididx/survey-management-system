@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -277,7 +276,11 @@ const AdminDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-100" dir="rtl">
-      <DashboardHeader user={user} onLogout={handleLogout} />
+      <DashboardHeader
+        onNavigateToArchive={() => {}}
+        onNavigateToAdmin={() => {}}
+        onNotificationClick={() => {}}
+      />
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex justify-between items-center mb-6">
