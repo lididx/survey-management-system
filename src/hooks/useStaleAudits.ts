@@ -1,84 +1,79 @@
 
 import { useState, useEffect } from 'react';
+import { getAllAudits } from '@/utils/auditStorage';
 import { Audit } from '@/types/types';
-import { toast } from 'sonner';
 
-export const useStaleAudits = (audits: Audit[]) => {
+const DISMISSED_NOTIFICATIONS_KEY = 'dismissed_notifications';
+
+export const useStaleAudits = () => {
+  const [staleAudits, setStaleAudits] = useState<Audit[]>([]);
+  const [dismissedNotifications, setDismissedNotifications] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    // Load dismissed notifications from localStorage
+    const dismissed = localStorage.getItem(DISMISSED_NOTIFICATIONS_KEY);
+    if (dismissed) {
+      setDismissedNotifications(new Set(JSON.parse(dismissed)));
+    }
+  }, []);
+
   useEffect(() => {
     const checkStaleAudits = () => {
-      const staleDays = 7; // סף של 7 ימים
+      const audits = getAllAudits();
       const now = new Date();
-      const staleThreshold = new Date(now.setDate(now.getDate() - staleDays));
+      const staleThreshold = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
       
-      audits.forEach(audit => {
-        const statusLog = audit.statusLog;
-        if (!statusLog || statusLog.length === 0) return;
-        
-        // שליפת השינוי האחרון בסטטוס
-        const latestChange = [...statusLog].sort((a, b) => 
-          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-        )[0];
-        
-        const lastChangeDate = new Date(latestChange.timestamp);
-        
-        // בדיקה אם הסטטוס הוא אחד מאלה שצריך לנטר ונשאר קפוא
-        if (
-          (audit.currentStatus === "נשלח מייל תיאום למנהל מערכת" || 
-           audit.currentStatus === "שאלות השלמה מול מנהל מערכת") && 
-          lastChangeDate < staleThreshold
-        ) {
-          // שליחת תזכורת בדוא"ל לבעל הסקר ולחן
-          sendReminderEmail(audit);
-          
-          // באפליקציה אמיתית, היינו שולחים כאן מייל
-          // בינתיים, נציג הודעת toast
-          toast.info(
-            `תזכורת: סטטוס סקר '${audit.name}' לא השתנה`,
-            { 
-              description: `הסטטוס של הסקר '${audit.name}' עדיין ב-${audit.currentStatus} מעל 7 ימים. אנא עדכן/י בהקדם.`,
-              duration: 10000
-            }
-          );
+      const stale = audits.filter(audit => {
+        // Skip dismissed notifications
+        if (dismissedNotifications.has(audit.id)) {
+          return false;
         }
+
+        // Check if audit is in a status that should trigger notifications
+        const shouldNotify = ['בביצוע', 'ממתין לאישור', 'בתהליך'].includes(audit.status);
+        if (!shouldNotify) return false;
+
+        // Check if it's been too long since last update
+        const lastUpdate = audit.lastUpdate ? new Date(audit.lastUpdate) : new Date(audit.auditDate);
+        const timeDiff = now.getTime() - lastUpdate.getTime();
+        
+        return timeDiff > staleThreshold;
       });
+      
+      setStaleAudits(stale);
     };
-    
-    // פונקציה לשליחת תזכורת במייל
-    const sendReminderEmail = (audit: Audit) => {
-      // מצא את המשתמש שיצר את הסקר
-      const ownerEmail = audit.ownerId;
-      
-      // הכתובות לשליחת התזכורת
-      const recipients = [
-        ownerEmail, // בעל הסקר (אני/מורן)
-        "chen@example.com" // החלף בכתובת האימייל האמיתית של חן
-      ];
-      
-      const subject = `תזכורת: סקר "${audit.name}" ממתין לטיפול כבר 7 ימים`;
-      const body = `שלום,
-      
-הסקר "${audit.name}" נמצא בסטטוס "${audit.currentStatus}" כבר למעלה מ-7 ימים ללא שינוי.
 
-נא לבדוק את הסקר ולעדכן את סטטוס הטיפול בהקדם.
-
-בברכה,
-מערכת ניהול סקרי אבטחת מידע`;
-      
-      // ברירת מחדל: הצג בקונסולה (בסביבת פיתוח)
-      console.log(`Reminder Email:
-        To: ${recipients.join(', ')}
-        Subject: ${subject}
-        Body: ${body}
-      `);
-      
-      // בסביבת ייצור, היינו משתמשים בשירות אימייל אמיתי
-    };
-    
-    // בדיקה פעם אחת בטעינה ואז הגדרת בדיקה יומית
-    // באפליקציה אמיתית, זה יהיה תהליך מתוזמן בצד השרת
     checkStaleAudits();
-    const interval = setInterval(checkStaleAudits, 24 * 60 * 60 * 1000); // פעם ביום
+    // Check every hour
+    const interval = setInterval(checkStaleAudits, 60 * 60 * 1000);
     
     return () => clearInterval(interval);
-  }, [audits]);
+  }, [dismissedNotifications]);
+
+  const dismissNotification = (auditId: string) => {
+    const newDismissed = new Set(dismissedNotifications);
+    newDismissed.add(auditId);
+    setDismissedNotifications(newDismissed);
+    
+    // Save to localStorage
+    localStorage.setItem(DISMISSED_NOTIFICATIONS_KEY, JSON.stringify([...newDismissed]));
+    
+    // Remove from stale audits
+    setStaleAudits(prev => prev.filter(audit => audit.id !== auditId));
+  };
+
+  const clearAllNotifications = () => {
+    const allAuditIds = staleAudits.map(audit => audit.id);
+    const newDismissed = new Set([...dismissedNotifications, ...allAuditIds]);
+    setDismissedNotifications(newDismissed);
+    localStorage.setItem(DISMISSED_NOTIFICATIONS_KEY, JSON.stringify([...newDismissed]));
+    setStaleAudits([]);
+  };
+
+  return {
+    staleAudits,
+    dismissNotification,
+    clearAllNotifications,
+    hasStaleAudits: staleAudits.length > 0
+  };
 };

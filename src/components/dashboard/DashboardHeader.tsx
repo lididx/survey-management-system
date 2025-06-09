@@ -1,95 +1,80 @@
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import React from "react";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { User } from "@/types/types";
-import { Archive, Home, LogOut, Shield } from "lucide-react";
-import { Link } from "react-router-dom";
+import { LogOut, Archive, Shield } from "lucide-react";
+import { useAuthManager } from "@/hooks/useAuthManager";
+import { getCurrentUser } from "@/utils/localAuth";
+import { Badge } from "@/components/ui/badge";
+import NotificationsSidebar from "@/components/notifications/NotificationsSidebar";
 
 interface DashboardHeaderProps {
-  user: User;
-  onLogout: () => void;
-  isArchive?: boolean;
+  onNavigateToArchive: () => void;
+  onNavigateToAdmin?: () => void;
+  onNotificationClick?: (auditId: string) => void;
 }
 
-export const DashboardHeader = ({ user, onLogout, isArchive = false }: DashboardHeaderProps) => {
-  const getInitials = (name: string) => {
-    if (!name) return "??";
-    return name
-      .split(' ')
-      .map(n => n[0])
-      .join('')
-      .toUpperCase();
-  };
-
-  const handleLogout = (e: React.MouseEvent) => {
-    e.preventDefault();
-    console.log("[DashboardHeader] Logout button clicked");
-    onLogout();
-  };
+const DashboardHeader: React.FC<DashboardHeaderProps> = ({
+  onNavigateToArchive,
+  onNavigateToAdmin,
+  onNotificationClick
+}) => {
+  const { handleLogout } = useAuthManager();
+  const user = getCurrentUser();
 
   return (
-    <header className="bg-white shadow-sm">
+    <div className="bg-white shadow-sm border-b">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          <div className="flex items-center">
-            <h1 className="text-xl font-bold text-gray-900">מערכת ניהול סקרי אבטחת מידע</h1>
+        <div className="flex justify-between items-center py-4">
+          <div className="flex items-center space-x-4">
+            <h1 className="text-2xl font-bold text-gray-900">לוח בקרה</h1>
+            {user && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600">שלום,</span>
+                <Badge variant="outline">{user.name}</Badge>
+                <Badge variant={user.isAdmin ? "default" : "secondary"}>
+                  {user.role}
+                </Badge>
+              </div>
+            )}
           </div>
           
-          <div className="flex items-center gap-6">
-            <nav className="flex items-center gap-4">
-              <Link 
-                to="/dashboard" 
-                className={`flex items-center gap-1 px-3 py-2 rounded-md text-sm font-medium ${!isArchive ? 'bg-gray-100 text-gray-900' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}
-              >
-                <Home className="h-4 w-4" />
-                דף הבית
-              </Link>
-              <Link 
-                to="/archive" 
-                className={`flex items-center gap-1 px-3 py-2 rounded-md text-sm font-medium ${isArchive ? 'bg-gray-100 text-gray-900' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}
-              >
-                <Archive className="h-4 w-4" />
-                ארכיון
-              </Link>
-              
-              {/* Admin link for admin users only */}
-              {user.isAdmin && (
-                <Link 
-                  to="/admin" 
-                  className="flex items-center gap-1 px-3 py-2 rounded-md text-sm font-medium text-blue-600 hover:bg-blue-50"
-                >
-                  <Shield className="h-4 w-4" />
-                  ניהול מערכת
-                </Link>
-              )}
-            </nav>
+          <div className="flex items-center space-x-2">
+            {/* Notifications Sidebar */}
+            <NotificationsSidebar onNotificationClick={onNotificationClick} />
             
-            <Separator orientation="vertical" className="h-8" />
+            <Button
+              variant="outline"
+              onClick={onNavigateToArchive}
+              className="flex items-center gap-2"
+            >
+              <Archive className="h-4 w-4" />
+              ארכיון
+            </Button>
             
-            <div className="flex items-center gap-4">
-              <div className="flex flex-col items-end">
-                <span className="text-sm font-medium text-gray-900">{user.name}</span>
-                <span className="text-xs text-gray-500">{user.role}{user.isAdmin ? ' (מנהל מערכת)' : ''}</span>
-              </div>
-              <Avatar className="h-9 w-9">
-                <AvatarFallback className="bg-blue-100 text-blue-800">
-                  {getInitials(user.name)}
-                </AvatarFallback>
-              </Avatar>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleLogout} 
-                className="text-gray-600 flex items-center gap-1"
+            {user?.isAdmin && onNavigateToAdmin && (
+              <Button
+                variant="outline"
+                onClick={onNavigateToAdmin}
+                className="flex items-center gap-2"
               >
-                <LogOut className="h-4 w-4" />
-                התנתק
+                <Shield className="h-4 w-4" />
+                ניהול מערכת
               </Button>
-            </div>
+            )}
+            
+            <Button
+              variant="outline"
+              onClick={handleLogout}
+              className="flex items-center gap-2"
+            >
+              <LogOut className="h-4 w-4" />
+              התנתק
+            </Button>
           </div>
         </div>
       </div>
-    </header>
+    </div>
   );
 };
+
+export default DashboardHeader;
