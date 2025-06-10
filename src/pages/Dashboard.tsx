@@ -3,22 +3,26 @@ import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, BarChart3 } from "lucide-react";
+import { Plus, BarChart3, Mail } from "lucide-react";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { StatusCards } from "@/components/dashboard/StatusCards";
 import { GroupedAuditsTable } from "@/components/dashboard/GroupedAuditsTable";
 import { StatisticsChart } from "@/components/dashboard/StatisticsChart";
 import { AuditFormModal } from "@/components/AuditFormModal";
+import { EmailTemplatePopup } from "@/components/EmailTemplatePopup";
 import { getStoredAudits } from "@/utils/auditStorage";
 import { Audit } from "@/types/types";
 import { useAuthManager } from "@/hooks/useAuthManager";
 import { getCurrentUser } from "@/utils/supabaseAuth";
+import { toast } from "sonner";
 
 const Dashboard = () => {
   const [audits, setAudits] = useState<Audit[]>(getStoredAudits(null));
   const [showAuditModal, setShowAuditModal] = useState(false);
   const [showStatistics, setShowStatistics] = useState(false);
   const [editingAudit, setEditingAudit] = useState<Audit | null>(null);
+  const [newlyCreatedAudit, setNewlyCreatedAudit] = useState<Audit | null>(null);
+  const [showEmailModal, setShowEmailModal] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuthManager();
   const currentUser = getCurrentUser();
@@ -27,10 +31,26 @@ const Dashboard = () => {
     setAudits(getStoredAudits(null));
   }, []);
 
-  const handleFormSuccess = () => {
+  const handleFormSuccess = (createdAudit?: Partial<Audit>) => {
     refreshAudits();
     setShowAuditModal(false);
     setEditingAudit(null);
+    
+    // אם נוצר סקר חדש, נציג כפתור מייל
+    if (createdAudit && 'id' in createdAudit) {
+      const fullAudit = audits.find(a => a.id === createdAudit.id) || createdAudit as Audit;
+      setNewlyCreatedAudit(fullAudit);
+      
+      // הצגת toast עם כפתור מייל
+      toast.success("סקר חדש נוצר בהצלחה!", {
+        description: "לחץ על הכפתור למטה לשליחת מייל תיאום",
+        action: {
+          label: "שלח מייל תיאום",
+          onClick: () => setShowEmailModal(true),
+        },
+        duration: 8000,
+      });
+    }
   };
 
   const handleEditAudit = (audit: Audit) => {
@@ -99,6 +119,18 @@ const Dashboard = () => {
                   {showStatistics ? "הסתר סטטיסטיקות" : "הצג סטטיסטיקות"}
                 </Button>
               )}
+
+              {/* כפתור מייל תיאום שמופיע רק אם יש סקר חדש */}
+              {newlyCreatedAudit && (
+                <Button
+                  onClick={() => setShowEmailModal(true)}
+                  variant="outline"
+                  className="flex items-center gap-2 border-blue-500 text-blue-600 hover:bg-blue-50"
+                >
+                  <Mail className="h-4 w-4" />
+                  שלח מייל תיאום
+                </Button>
+              )}
             </div>
           </div>
 
@@ -149,6 +181,18 @@ const Dashboard = () => {
         mode={editingAudit ? "edit" : "create"}
         currentUser={currentUser}
       />
+
+      {/* Email Template Modal */}
+      {newlyCreatedAudit && (
+        <EmailTemplatePopup
+          audit={newlyCreatedAudit}
+          open={showEmailModal}
+          onClose={() => {
+            setShowEmailModal(false);
+            setNewlyCreatedAudit(null);
+          }}
+        />
+      )}
     </div>
   );
 };

@@ -33,7 +33,7 @@ export const AuditFormModal: React.FC<AuditFormModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" dir="rtl">
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto bg-white/95 backdrop-blur-sm" dir="rtl">
         <DialogHeader>
           <DialogTitle className="text-right">
             {mode === "create" ? "צור סקר חדש" : "ערוך סקר"}
