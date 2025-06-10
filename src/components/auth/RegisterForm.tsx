@@ -6,29 +6,34 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Eye, EyeOff, Mail, User } from "lucide-react";
-import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { registerUser } from "@/utils/localAuth";
+import { Eye, EyeOff, UserPlus } from "lucide-react";
+import { toast } from "sonner";
+import { UserRole } from "@/types/types";
+import { createUser } from "@/utils/supabaseAuth";
 
 const registerSchema = z.object({
   email: z.string().email("נדרשת כתובת אימייל תקינה"),
-  password: z.string().min(6, "סיסמה חייבת להכיל לפחות 6 תווים"),
   name: z.string().min(2, "שם חייב להכיל לפחות 2 תווים"),
-  role: z.enum(["בודק", "מנהלת", "מנהל מערכת"]).default("בודק"),
+  role: z.enum(["בודק", "מנהל", "מנהל מערכת"] as const, {
+    required_error: "נדרש לבחור תפקיד",
+  }),
 });
 
 type RegisterFormValues = z.infer<typeof registerSchema>;
 
-const RegisterForm = () => {
-  const [showPassword, setShowPassword] = useState(false);
+interface RegisterFormProps {
+  onSuccess?: () => void;
+  currentUserId: string;
+}
+
+const RegisterForm = ({ onSuccess, currentUserId }: RegisterFormProps) => {
   const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
       email: "",
-      password: "",
       name: "",
       role: "בודק",
     },
@@ -37,29 +42,29 @@ const RegisterForm = () => {
   const onSubmit = async (data: RegisterFormValues) => {
     setIsLoading(true);
     try {
-      // רישום משתמש חדש במערכת המקומית
-      const { success, error } = registerUser(
+      const { success, user, temporaryPassword, error } = await createUser(
         data.email,
-        data.password,
         data.name,
-        data.role
+        data.role,
+        currentUserId
       );
-
-      if (!success) {
-        console.error("Registration error:", error);
-        toast.error("שגיאה בהרשמה", {
+      
+      if (!success || error) {
+        toast.error("שגיאה ביצירת המשתמש", {
           description: error || "אנא נסה שוב מאוחר יותר",
         });
       } else {
-        // לאחר הרשמה מוצלחת
-        toast.success("נרשמת בהצלחה", {
-          description: "כעת תוכל להתחבר למערכת",
+        toast.success("המשתמש נוצר בהצלחה", {
+          description: `סיסמה זמנית: ${temporaryPassword}`,
+          duration: 10000,
         });
+        
         form.reset();
+        onSuccess?.();
       }
     } catch (error) {
-      console.error("Registration error:", error);
-      toast.error("שגיאה בהרשמה", {
+      console.error("Register error:", error);
+      toast.error("שגיאה ביצירת המשתמש", {
         description: "אנא נסה שוב מאוחר יותר",
       });
     } finally {
@@ -72,33 +77,13 @@ const RegisterForm = () => {
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <FormField
           control={form.control}
-          name="name"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>שם מלא</FormLabel>
-              <div className="relative">
-                <FormControl>
-                  <Input placeholder="ישראל ישראלי" {...field} />
-                </FormControl>
-                <User className="absolute left-2 top-2.5 h-5 w-5 text-gray-400" />
-              </div>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        
-        <FormField
-          control={form.control}
           name="email"
           render={({ field }) => (
             <FormItem>
               <FormLabel>אימייל</FormLabel>
-              <div className="relative">
-                <FormControl>
-                  <Input placeholder="your@email.com" {...field} />
-                </FormControl>
-                <Mail className="absolute left-2 top-2.5 h-5 w-5 text-gray-400" />
-              </div>
+              <FormControl>
+                <Input placeholder="your@email.com" {...field} />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}
@@ -106,32 +91,13 @@ const RegisterForm = () => {
         
         <FormField
           control={form.control}
-          name="password"
+          name="name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>סיסמה</FormLabel>
-              <div className="relative">
-                <FormControl>
-                  <Input
-                    type={showPassword ? "text" : "password"}
-                    placeholder="******"
-                    {...field}
-                  />
-                </FormControl>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute left-0 top-0"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-5 w-5 text-gray-400" />
-                  ) : (
-                    <Eye className="h-5 w-5 text-gray-400" />
-                  )}
-                </Button>
-              </div>
+              <FormLabel>שם מלא</FormLabel>
+              <FormControl>
+                <Input placeholder="שם מלא" {...field} />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}
@@ -151,7 +117,7 @@ const RegisterForm = () => {
                 </FormControl>
                 <SelectContent>
                   <SelectItem value="בודק">בודק</SelectItem>
-                  <SelectItem value="מנהלת">מנהל/ת</SelectItem>
+                  <SelectItem value="מנהל">מנהל</SelectItem>
                   <SelectItem value="מנהל מערכת">מנהל מערכת</SelectItem>
                 </SelectContent>
               </Select>
@@ -161,7 +127,16 @@ const RegisterForm = () => {
         />
         
         <Button type="submit" className="w-full" disabled={isLoading}>
-          {isLoading ? "מתבצעת הרשמה..." : "הירשם"}
+          {isLoading ? (
+            <span className="flex items-center">
+              טוען...
+            </span>
+          ) : (
+            <span className="flex items-center gap-2">
+              <UserPlus className="h-5 w-5" />
+              צור משתמש חדש
+            </span>
+          )}
         </Button>
       </form>
     </Form>

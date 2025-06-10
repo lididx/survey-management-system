@@ -3,10 +3,15 @@ import { createClient } from '@supabase/supabase-js';
 import { User, AuditLogEntry, UserRole } from '@/types/types';
 import { toast } from 'sonner';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// Get Supabase configuration from environment variables
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co';
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder-key';
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+// Check if Supabase is properly configured
+const isSupabaseConfigured = supabaseUrl !== 'https://placeholder.supabase.co' && supabaseKey !== 'placeholder-key';
+
+// Only create Supabase client if properly configured
+export const supabase = isSupabaseConfigured ? createClient(supabaseUrl, supabaseKey) : null;
 
 const CURRENT_USER_KEY = 'current_user';
 
@@ -16,13 +21,54 @@ interface SupabaseUser extends User {
   lastLogin?: Date;
 }
 
+// Mock users for development when Supabase is not configured
+const mockUsers = [
+  {
+    id: '1',
+    email: 'lidor@example.com',
+    password: 'password123',
+    name: 'לידור',
+    role: 'בודק' as UserRole,
+    isAdmin: false
+  },
+  {
+    id: '2',
+    email: 'moran@example.com',
+    password: 'password123',
+    name: 'מורן',
+    role: 'בודק' as UserRole,
+    isAdmin: false
+  },
+  {
+    id: '3',
+    email: 'chen@example.com',
+    password: 'password123',
+    name: 'חן',
+    role: 'מנהל' as UserRole,
+    isAdmin: true
+  },
+  {
+    id: '4',
+    email: 'admin@system.com',
+    password: 'Aa123456!',
+    name: 'מנהל מערכת',
+    role: 'מנהל מערכת' as UserRole,
+    isAdmin: true
+  }
+];
+
 // Initialize and migrate users on first load
 export const initializeSupabaseAuth = async (): Promise<void> => {
+  if (!isSupabaseConfigured) {
+    console.log('[SupabaseAuth] Supabase not configured, using mock authentication');
+    return;
+  }
+
   try {
     console.log('[SupabaseAuth] Initializing authentication system');
     
     // Call migration function
-    const { data, error } = await supabase.functions.invoke('migrate-users');
+    const { data, error } = await supabase!.functions.invoke('migrate-users');
     
     if (error) {
       console.error('[SupabaseAuth] Migration error:', error);
@@ -38,8 +84,40 @@ export const initializeSupabaseAuth = async (): Promise<void> => {
 export const loginUser = async (email: string, password: string): Promise<{ success: boolean; user?: User; error?: string }> => {
   console.log(`[SupabaseAuth] Login attempt for email: ${email}`);
   
+  // If Supabase is not configured, use mock authentication
+  if (!isSupabaseConfigured) {
+    console.log('[SupabaseAuth] Using mock authentication');
+    
+    const mockUser = mockUsers.find(u => u.email === email && u.password === password);
+    
+    if (!mockUser) {
+      return { 
+        success: false, 
+        error: 'שגיאה בהתחברות - פרטי התחברות שגויים' 
+      };
+    }
+
+    const user: User = {
+      id: mockUser.id,
+      email: mockUser.email,
+      role: mockUser.role,
+      name: mockUser.name,
+      isAdmin: mockUser.isAdmin,
+      lastLogin: new Date()
+    };
+
+    // Store current user in session
+    localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
+    console.log(`[SupabaseAuth] Mock user logged in successfully: ${email}`);
+    
+    return { 
+      success: true, 
+      user 
+    };
+  }
+  
   try {
-    const { data, error } = await supabase.functions.invoke('auth-login', {
+    const { data, error } = await supabase!.functions.invoke('auth-login', {
       body: { email, password }
     });
 
@@ -107,8 +185,15 @@ export const createUser = async (
   role: UserRole,
   currentUserId: string
 ): Promise<{ success: boolean; user?: any; temporaryPassword?: string; error?: string }> => {
+  if (!isSupabaseConfigured) {
+    return { 
+      success: false, 
+      error: 'יצירת משתמשים זמינה רק עם Supabase' 
+    };
+  }
+
   try {
-    const { data, error } = await supabase.functions.invoke('user-management', {
+    const { data, error } = await supabase!.functions.invoke('user-management', {
       body: { 
         action: 'create_user',
         email,
@@ -145,8 +230,15 @@ export const changePassword = async (
   newPassword: string,
   oldPassword?: string
 ): Promise<{ success: boolean; error?: string }> => {
+  if (!isSupabaseConfigured) {
+    return { 
+      success: false, 
+      error: 'שינוי סיסמה זמין רק עם Supabase' 
+    };
+  }
+
   try {
-    const { data, error } = await supabase.functions.invoke('user-management', {
+    const { data, error } = await supabase!.functions.invoke('user-management', {
       body: { 
         action: 'change_password',
         userId,
@@ -174,8 +266,20 @@ export const changePassword = async (
 
 // Get all users (admin only)
 export const getUsers = async (): Promise<User[]> => {
+  if (!isSupabaseConfigured) {
+    // Return mock users for development
+    return mockUsers.map(user => ({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      isAdmin: user.isAdmin,
+      lastLogin: new Date()
+    }));
+  }
+
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabase!
       .from('users')
       .select('id, email, name, role, is_admin, active, created_at, last_login')
       .eq('active', true)
@@ -202,8 +306,12 @@ export const getUsers = async (): Promise<User[]> => {
 
 // Get audit log (admin only)
 export const getAuditLog = async (limit?: number): Promise<AuditLogEntry[]> => {
+  if (!isSupabaseConfigured) {
+    return [];
+  }
+
   try {
-    let query = supabase
+    let query = supabase!
       .from('audit_log')
       .select('*')
       .order('timestamp', { ascending: false });
@@ -233,5 +341,7 @@ export const getAuditLog = async (limit?: number): Promise<AuditLogEntry[]> => {
   }
 };
 
-// Initialize on import
-initializeSupabaseAuth();
+// Initialize on import (only if configured)
+if (isSupabaseConfigured) {
+  initializeSupabaseAuth();
+}
