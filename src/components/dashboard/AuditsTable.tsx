@@ -179,7 +179,7 @@ export const AuditsTable = ({
   };
 
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto" dir="rtl">
       <Table className="min-w-full divide-y divide-gray-200">
         <TableHeader>
           <TableRow className="bg-gray-50 text-gray-700">
@@ -196,7 +196,10 @@ export const AuditsTable = ({
           {audits.length > 0 ? (
             audits.map((audit) => (
               <React.Fragment key={audit.id}>
-                <TableRow className="hover:bg-gray-100 transition-colors">
+                <TableRow 
+                  className="hover:bg-gray-100 transition-colors"
+                  data-audit-id={audit.id}
+                >
                   <TableCell className="p-4 font-medium text-center">{audit.name}</TableCell>
                   <TableCell className="p-4 text-center">
                     {getStatusBadge(audit.currentStatus, audit)}

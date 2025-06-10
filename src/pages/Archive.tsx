@@ -1,8 +1,11 @@
+
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Search, Archive } from "lucide-react";
+import { Search, Archive, Home } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Audit, StatusType } from "@/types/types";
 import { AuditsTable } from "@/components/dashboard/AuditsTable";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
@@ -12,6 +15,7 @@ import { useAuditManager } from "@/hooks/useAuditManager";
 
 const ArchivePage = () => {
   const { user, handleLogout } = useAuthManager();
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   
   const { 
@@ -48,6 +52,10 @@ const ArchivePage = () => {
     }
   };
 
+  const handleBackToHome = () => {
+    navigate("/dashboard");
+  };
+
   if (!user) return null;
 
   return (
@@ -60,9 +68,19 @@ const ArchivePage = () => {
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex justify-between items-center flex-wrap gap-4 mb-6">
-          <div className="flex items-center gap-2">
-            <Archive className="h-5 w-5" />
-            <h2 className="text-xl font-semibold">ארכיון סקרים שהסתיימו</h2>
+          <div className="flex items-center gap-4">
+            <Button
+              variant="outline"
+              onClick={handleBackToHome}
+              className="flex items-center gap-2"
+            >
+              <Home className="h-4 w-4" />
+              עמוד הבית
+            </Button>
+            <div className="flex items-center gap-2">
+              <Archive className="h-5 w-5" />
+              <h2 className="text-xl font-semibold">ארכיון סקרים שהסתיימו</h2>
+            </div>
           </div>
           
           <div className="flex items-center gap-4">
@@ -73,7 +91,8 @@ const ArchivePage = () => {
                 placeholder="חיפוש בארכיון..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pr-10 w-[250px]"
+                className="pr-10 w-[250px] text-right"
+                dir="rtl"
               />
             </div>
           </div>
