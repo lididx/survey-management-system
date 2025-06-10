@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User } from '@/types/types';
 import { toast } from 'sonner';
-import { getCurrentUser, logoutUser } from '@/utils/localAuth';
+import { getCurrentUser, logoutUser } from '@/utils/supabaseAuth';
 
 export const useAuthManager = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -15,13 +15,13 @@ export const useAuthManager = () => {
       try {
         console.log("[useAuthManager] Checking for logged in user");
         
-        // Check for local user
-        const localUser = getCurrentUser();
-        console.log("[useAuthManager] Local user check result:", localUser);
+        // Check for current user
+        const currentUser = getCurrentUser();
+        console.log("[useAuthManager] User check result:", currentUser);
         
-        if (localUser) {
-          console.log(`[useAuthManager] Local user logged in: ${localUser.email}`);
-          setUser(localUser);
+        if (currentUser) {
+          console.log(`[useAuthManager] User logged in: ${currentUser.email}`);
+          setUser(currentUser);
           setIsLoading(false);
           return;
         }

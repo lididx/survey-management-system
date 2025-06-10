@@ -10,7 +10,8 @@ import { Eye, EyeOff, Mail, LogIn } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
-import { loginUser } from "@/utils/localAuth";
+import { loginUser } from "@/utils/supabaseAuth";
+import PasswordChangeForm from "./PasswordChangeForm";
 
 const loginSchema = z.object({
   email: z.string().email("נדרשת כתובת אימייל תקינה"),
@@ -22,6 +23,7 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 const LoginForm = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [mustChangePassword, setMustChangePassword] = useState<{ userId: string } | null>(null);
   const navigate = useNavigate();
 
   const form = useForm<LoginFormValues>({
@@ -36,25 +38,28 @@ const LoginForm = () => {
     setIsLoading(true);
     try {
       console.log("Login attempt with:", data.email);
-      // אימות באמצעות מערכת האימות המקומית
-      const { success, user, error } = loginUser(data.email, data.password);
+      const { success, user, error } = await loginUser(data.email, data.password);
       console.log("Login result:", { success, user, error });
       
       if (!success || error) {
+        // Check if user must change password
+        if (error === 'MUST_CHANGE_PASSWORD' && user) {
+          setMustChangePassword({ userId: user.id });
+          return;
+        }
+        
         toast.error("פרטי התחברות שגויים", {
           description: error || "אימייל או סיסמה אינם נכונים",
         });
       } else {
-        // התחברות מוצלחת
         toast.success("התחברת בהצלחה", {
           description: `ברוך הבא ${user?.name}! מועבר לדף הבית...`,
         });
         
-        // Force a slight delay to ensure localStorage is updated
         setTimeout(() => {
           console.log("Redirecting to dashboard after successful login");
           navigate("/dashboard", { replace: true });
-        }, 800); // Increased delay to ensure state is properly updated
+        }, 800);
       }
     } catch (error) {
       console.error("Login error:", error);
@@ -65,6 +70,23 @@ const LoginForm = () => {
       setIsLoading(false);
     }
   };
+
+  const handlePasswordChangeSuccess = () => {
+    setMustChangePassword(null);
+    toast.success("הסיסמה שונתה בהצלחה", {
+      description: "כעת תוכל להתחבר עם הסיסמה החדשה",
+    });
+  };
+
+  // If user must change password, show password change form
+  if (mustChangePassword) {
+    return (
+      <PasswordChangeForm
+        userId={mustChangePassword.userId}
+        onSuccess={handlePasswordChangeSuccess}
+      />
+    );
+  }
 
   return (
     <>
@@ -89,7 +111,7 @@ const LoginForm = () => {
         </Badge>
         <Badge variant="outline" className="p-2 cursor-pointer bg-blue-50" onClick={() => {
           form.setValue("email", "admin@system.com");
-          form.setValue("password", "Aa123456");
+          form.setValue("password", "Aa123456!");
         }}>
           מנהל מערכת
         </Badge>
