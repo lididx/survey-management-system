@@ -5,7 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { getCurrentUser } from "@/utils/localAuth";
+import { getCurrentUser } from "@/utils/supabaseAuth";
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import Archive from "./pages/Archive";

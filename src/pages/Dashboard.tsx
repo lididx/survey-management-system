@@ -8,7 +8,7 @@ import { AuditForm } from "@/components/AuditForm";
 import { getStoredAudits } from "@/utils/auditStorage";
 import { Audit } from "@/types/types";
 import { useAuthManager } from "@/hooks/useAuthManager";
-import { getCurrentUser } from "@/utils/localAuth";
+import { getCurrentUser } from "@/utils/supabaseAuth";
 
 const Dashboard = () => {
   const [audits, setAudits] = useState<Audit[]>(getStoredAudits(null));

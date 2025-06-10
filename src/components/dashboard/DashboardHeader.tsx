@@ -3,7 +3,7 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { LogOut, Archive, Shield } from "lucide-react";
 import { useAuthManager } from "@/hooks/useAuthManager";
-import { getCurrentUser } from "@/utils/localAuth";
+import { getCurrentUser } from "@/utils/supabaseAuth";
 import { Badge } from "@/components/ui/badge";
 import NotificationsSidebar from "@/components/notifications/NotificationsSidebar";
 

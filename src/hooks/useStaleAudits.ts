@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { getStoredAudits } from '@/utils/auditStorage';
 import { Audit } from '@/types/types';
-import { getCurrentUser } from '@/utils/localAuth';
+import { getCurrentUser } from '@/utils/supabaseAuth';
 
 const DISMISSED_NOTIFICATIONS_KEY = 'dismissed_notifications';
 
