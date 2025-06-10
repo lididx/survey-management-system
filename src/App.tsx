@@ -27,8 +27,14 @@ const App = () => {
         console.log("[App] Checking authentication status");
         const user = getCurrentUser();
         console.log("[App] User from localStorage:", user);
-        setIsAuthenticated(!!user);
-        setIsAdmin(user?.isAdmin || false);
+        
+        const authenticated = !!user;
+        const admin = user?.isAdmin || false;
+        
+        console.log("[App] Authentication check results:", { authenticated, admin });
+        
+        setIsAuthenticated(authenticated);
+        setIsAdmin(admin);
       } catch (error) {
         console.error("[App] Error checking authentication status:", error);
         setIsAuthenticated(false);
@@ -41,21 +47,27 @@ const App = () => {
     checkAuth();
     
     // Set up event listener for auth changes
-    window.addEventListener('storage', (event) => {
+    const handleStorageChange = (event: StorageEvent) => {
       if (event.key === 'current_user') {
-        console.log('[App] Auth state changed, updating');
+        console.log('[App] Auth state changed via storage, updating');
         checkAuth();
       }
-    });
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, []);
 
   // Create a protected route component
   const ProtectedRoute = ({ children, requireAdmin = false }: { children: React.ReactNode, requireAdmin?: boolean }) => {
+    console.log(`[ProtectedRoute] Checking access - isLoading: ${isLoading}, isAuthenticated: ${isAuthenticated}, isAdmin: ${isAdmin}, requireAdmin: ${requireAdmin}`);
+    
     if (isLoading) {
       return <div className="min-h-screen flex items-center justify-center" dir="rtl">טוען...</div>;
     }
-    
-    console.log(`[ProtectedRoute] isAuthenticated: ${isAuthenticated}, isAdmin: ${isAdmin}, requireAdmin: ${requireAdmin}`);
     
     if (!isAuthenticated) {
       console.log("[ProtectedRoute] Not authenticated, redirecting to /");
@@ -67,6 +79,7 @@ const App = () => {
       return <Navigate to="/dashboard" replace />;
     }
 
+    console.log("[ProtectedRoute] Access granted");
     return <>{children}</>;
   };
 

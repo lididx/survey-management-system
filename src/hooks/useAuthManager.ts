@@ -87,6 +87,7 @@ export const useAuthManager = () => {
   // Method to manually refresh user data
   const refreshUser = () => {
     const currentUser = getCurrentUser();
+    console.log("[useAuthManager] Refreshing user data:", currentUser);
     setUser(currentUser);
   };
 

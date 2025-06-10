@@ -44,17 +44,23 @@ const LoginForm = () => {
       if (!success || error) {
         // Check if user must change password
         if (error === 'MUST_CHANGE_PASSWORD' && user) {
-          setMustChangePassword({ userId: user.id });
+          setMustChangePassword({ userId: user.id! });
           return;
         }
         
         toast.error("פרטי התחברות שגויים", {
           description: error || "אימייל או סיסמה אינם נכונים",
         });
-      } else {
+      } else if (user) {
         toast.success("התחברת בהצלחה", {
-          description: `ברוך הבא ${user?.name}! מועבר לדף הבית...`,
+          description: `ברוך הבא ${user.name}! מועבר לדף הבית...`,
         });
+        
+        // Trigger storage event to update app state
+        window.dispatchEvent(new StorageEvent('storage', {
+          key: 'current_user',
+          newValue: localStorage.getItem('current_user')
+        }));
         
         setTimeout(() => {
           console.log("Redirecting to dashboard after successful login");

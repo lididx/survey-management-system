@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 import { User, AuditLogEntry, UserRole } from '@/types/types';
 import { toast } from 'sonner';
@@ -44,7 +43,7 @@ const mockUsers = [
     email: 'chen@example.com',
     password: 'password123',
     name: 'חן',
-    role: 'מנהל' as UserRole,
+    role: 'מנהלת' as UserRole,
     isAdmin: true
   },
   {
@@ -89,8 +88,10 @@ export const loginUser = async (email: string, password: string): Promise<{ succ
     console.log('[SupabaseAuth] Using mock authentication');
     
     const mockUser = mockUsers.find(u => u.email === email && u.password === password);
+    console.log('[SupabaseAuth] Found mock user:', mockUser ? 'YES' : 'NO');
     
     if (!mockUser) {
+      console.log('[SupabaseAuth] Mock login failed - credentials not found');
       return { 
         success: false, 
         error: 'שגיאה בהתחברות - פרטי התחברות שגויים' 
@@ -108,7 +109,7 @@ export const loginUser = async (email: string, password: string): Promise<{ succ
 
     // Store current user in session
     localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
-    console.log(`[SupabaseAuth] Mock user logged in successfully: ${email}`);
+    console.log(`[SupabaseAuth] Mock user logged in successfully: ${email}`, user);
     
     return { 
       success: true, 
@@ -166,10 +167,15 @@ export const loginUser = async (email: string, password: string): Promise<{ succ
 
 // Get current user
 export const getCurrentUser = (): User | null => {
-  const userJson = localStorage.getItem(CURRENT_USER_KEY);
-  const user = userJson ? JSON.parse(userJson) : null;
-  console.log("[SupabaseAuth] getCurrentUser:", user);
-  return user;
+  try {
+    const userJson = localStorage.getItem(CURRENT_USER_KEY);
+    const user = userJson ? JSON.parse(userJson) : null;
+    console.log("[SupabaseAuth] getCurrentUser result:", user);
+    return user;
+  } catch (error) {
+    console.error("[SupabaseAuth] Error getting current user:", error);
+    return null;
+  }
 };
 
 // Logout user
