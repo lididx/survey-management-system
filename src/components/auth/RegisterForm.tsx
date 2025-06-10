@@ -15,7 +15,7 @@ import { createUser } from "@/utils/supabaseAuth";
 const registerSchema = z.object({
   email: z.string().email("נדרשת כתובת אימייל תקינה"),
   name: z.string().min(2, "שם חייב להכיל לפחות 2 תווים"),
-  role: z.enum(["בודק", "מנהל", "מנהל מערכת"] as const, {
+  role: z.enum(["בודק", "מנהלת", "מנהל מערכת"] as const, {
     required_error: "נדרש לבחור תפקיד",
   }),
 });
@@ -117,7 +117,7 @@ const RegisterForm = ({ onSuccess, currentUserId }: RegisterFormProps) => {
                 </FormControl>
                 <SelectContent>
                   <SelectItem value="בודק">בודק</SelectItem>
-                  <SelectItem value="מנהל">מנהל</SelectItem>
+                  <SelectItem value="מנהלת">מנהלת</SelectItem>
                   <SelectItem value="מנהל מערכת">מנהל מערכת</SelectItem>
                 </SelectContent>
               </Select>
