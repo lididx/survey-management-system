@@ -26,11 +26,11 @@ export const StatusLogView: React.FC<StatusLogViewProps> = ({ statusLog }) => {
       return `נוצר בסטטוס: ${newStatus}`;
     }
     return (
-      <div className="flex items-center gap-2 text-right">
-        <span>השתנה מ</span>
-        <Badge variant="outline" className="text-xs">{oldStatus}</Badge>
-        <ArrowLeft className="h-3 w-3" />
+      <div className="flex items-center justify-end gap-2">
         <Badge variant="outline" className="text-xs">{newStatus}</Badge>
+        <ArrowLeft className="h-3 w-3" />
+        <Badge variant="outline" className="text-xs">{oldStatus}</Badge>
+        <span>השתנה מ</span>
       </div>
     );
   };
@@ -48,12 +48,12 @@ export const StatusLogView: React.FC<StatusLogViewProps> = ({ statusLog }) => {
     
     if (oldDate && newDate) {
       return (
-        <div className="text-right text-sm">
-          <div>תאריך השתנה:</div>
-          <div className="flex items-center gap-2 mt-1">
-            <span className="text-gray-500">{formatDate(oldDate)}</span>
-            <ArrowLeft className="h-3 w-3" />
+        <div className="text-right">
+          <div className="flex items-center justify-end gap-2">
             <span className="font-medium">{formatDate(newDate)}</span>
+            <ArrowLeft className="h-3 w-3" />
+            <span className="text-gray-500">{formatDate(oldDate)}</span>
+            <span>תאריך השתנה מ</span>
           </div>
         </div>
       );
@@ -83,48 +83,57 @@ export const StatusLogView: React.FC<StatusLogViewProps> = ({ statusLog }) => {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
+        <div className="space-y-6">
           {sortedLog.map((log, index) => (
-            <div key={index} className="border-r-2 border-blue-200 pr-4 pb-4">
-              <div className="grid grid-cols-1 gap-3">
-                {/* תאריך */}
-                <div className="flex items-center gap-2 text-right text-sm text-gray-600">
+            <div key={index} className="border-b border-gray-200 pb-4 last:border-b-0">
+              <div className="space-y-3">
+                {/* שורת תאריך */}
+                <div className="flex items-center justify-end gap-2 text-sm text-gray-600 bg-gray-50 p-2 rounded">
+                  <span className="font-medium">{formatDate(log.timestamp)}</span>
                   <Calendar className="h-4 w-4" />
-                  <span>{formatDate(log.timestamp)}</span>
                 </div>
 
-                {/* שינוי סטטוס */}
-                <div className="text-right">
-                  <div className="font-medium text-sm mb-1">שינוי סטטוס:</div>
-                  {formatStatusChange(log.oldStatus, log.newStatus)}
-                </div>
-
-                {/* שינוי תאריך */}
-                {(log.oldDate || log.newDate) && (
-                  <div className="text-right">
-                    <div className="font-medium text-sm mb-1">שינוי תאריך פגישה:</div>
-                    {formatDateChange(log.oldDate, log.newDate)}
+                {/* שורת שינוי סטטוס */}
+                <div className="bg-blue-50 p-3 rounded">
+                  <div className="text-right text-sm font-medium text-blue-800 mb-2">
+                    שינוי סטטוס:
                   </div>
-                )}
-
-                {/* סיבה */}
-                {log.reason && (
                   <div className="text-right">
-                    <div className="flex items-start gap-2">
-                      <MessageSquare className="h-4 w-4 mt-0.5 text-gray-500" />
-                      <div>
-                        <div className="font-medium text-sm">סיבה:</div>
-                        <div className="text-sm text-gray-700 mt-1">{log.reason}</div>
-                      </div>
+                    {formatStatusChange(log.oldStatus, log.newStatus)}
+                  </div>
+                </div>
+
+                {/* שורת שינוי תאריך */}
+                {(log.oldDate || log.newDate) && (
+                  <div className="bg-green-50 p-3 rounded">
+                    <div className="text-right text-sm font-medium text-green-800 mb-2">
+                      שינוי תאריך פגישה:
+                    </div>
+                    <div className="text-right">
+                      {formatDateChange(log.oldDate, log.newDate)}
                     </div>
                   </div>
                 )}
 
-                {/* בוצע על ידי */}
-                <div className="text-right">
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <User className="h-4 w-4" />
-                    <span>בוצע על ידי: <span className="font-medium">{log.modifiedBy}</span></span>
+                {/* שורת סיבה */}
+                {log.reason && (
+                  <div className="bg-yellow-50 p-3 rounded">
+                    <div className="flex items-start justify-end gap-2">
+                      <div className="text-right">
+                        <div className="text-sm font-medium text-yellow-800 mb-1">סיבה:</div>
+                        <div className="text-sm text-yellow-700">{log.reason}</div>
+                      </div>
+                      <MessageSquare className="h-4 w-4 mt-0.5 text-yellow-600" />
+                    </div>
+                  </div>
+                )}
+
+                {/* שורת בוצע על ידי */}
+                <div className="bg-purple-50 p-3 rounded">
+                  <div className="flex items-center justify-end gap-2 text-sm">
+                    <span className="font-medium text-purple-700">{log.modifiedBy}</span>
+                    <span className="text-purple-600">:בוצע על ידי</span>
+                    <User className="h-4 w-4 text-purple-600" />
                   </div>
                 </div>
               </div>

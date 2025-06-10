@@ -9,10 +9,16 @@ interface StatisticsChartProps {
   audits: Audit[];
 }
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
+const STATUS_COLORS = {
+  'completed': '#22c55e',
+  'inProgress': '#f59e0b', 
+  'pending': '#ef4444'
+};
+
+const PIE_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
 
 export const StatisticsChart: React.FC<StatisticsChartProps> = ({ audits }) => {
-  // Data by auditor
+  // Data by auditor with better separation
   const auditorStats = audits.reduce((acc, audit) => {
     const owner = audit.ownerName || audit.ownerId || 'לא ידוע';
     if (!acc[owner]) {
@@ -52,7 +58,7 @@ export const StatisticsChart: React.FC<StatisticsChartProps> = ({ audits }) => {
     value: count
   }));
 
-  // Client distribution
+  // Client distribution  
   const clientStats = audits.reduce((acc, audit) => {
     const client = audit.clientName || 'לא צוין';
     acc[client] = (acc[client] || 0) + 1;
@@ -62,20 +68,22 @@ export const StatisticsChart: React.FC<StatisticsChartProps> = ({ audits }) => {
   const clientData = Object.entries(clientStats)
     .map(([client, count]) => ({ name: client, value: count }))
     .sort((a, b) => b.value - a.value)
-    .slice(0, 8); // Top 8 clients
+    .slice(0, 8);
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-white p-3 border rounded-lg shadow-lg" dir="rtl">
-          <p className="font-medium">{label}</p>
+        <div className="bg-white p-4 border rounded-lg shadow-lg border-gray-200" dir="rtl">
+          <p className="font-bold text-gray-800 mb-2">{label}</p>
           {payload.map((entry: any, index: number) => (
-            <p key={index} style={{ color: entry.color }}>
-              {entry.dataKey === 'total' && 'סה"כ סקרים: '}
-              {entry.dataKey === 'completed' && 'הסתיימו: '}
-              {entry.dataKey === 'inProgress' && 'בתהליך: '}
-              {entry.dataKey === 'pending' && 'ממתינים: '}
-              {entry.value}
+            <p key={index} className="text-sm" style={{ color: entry.color }}>
+              <span className="font-medium">
+                {entry.dataKey === 'total' && 'סה"כ סקרים: '}
+                {entry.dataKey === 'completed' && 'הסתיימו: '}
+                {entry.dataKey === 'inProgress' && 'בתהליך: '}
+                {entry.dataKey === 'pending' && 'ממתינים: '}
+              </span>
+              <span className="font-bold">{entry.value}</span>
             </p>
           ))}
         </div>
@@ -84,35 +92,89 @@ export const StatisticsChart: React.FC<StatisticsChartProps> = ({ audits }) => {
     return null;
   };
 
+  const PieTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0];
+      return (
+        <div className="bg-white p-3 border rounded-lg shadow-lg" dir="rtl">
+          <p className="font-medium">{data.name}</p>
+          <p className="text-sm text-gray-600">
+            <span className="font-bold">{data.value}</span> סקרים
+          </p>
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" dir="rtl">
-      {/* Auditor Statistics */}
-      <Card>
+    <div className="grid grid-cols-1 xl:grid-cols-2 gap-8" dir="rtl">
+      {/* Auditor Statistics - Main Chart */}
+      <Card className="xl:col-span-2">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            סטטיסטיקות לפי בודק
+          <CardTitle className="flex items-center gap-2 text-xl">
+            <Users className="h-6 w-6" />
+            סטטיסטיקות סקרים לפי בודק
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={auditorData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" />
+          <ResponsiveContainer width="100%" height={400}>
+            <BarChart 
+              data={auditorData} 
+              margin={{ top: 20, right: 30, left: 20, bottom: 80 }}
+              barCategoryGap="20%"
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis 
                 dataKey="name" 
-                tick={{ fontSize: 12 }}
+                tick={{ fontSize: 14, fill: '#374151' }}
                 interval={0}
-                angle={-45}
+                angle={-35}
                 textAnchor="end"
-                height={60}
+                height={80}
+                axisLine={{ stroke: '#d1d5db' }}
               />
-              <YAxis />
+              <YAxis 
+                tick={{ fontSize: 12, fill: '#6b7280' }}
+                axisLine={{ stroke: '#d1d5db' }}
+              />
               <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="completed" fill="#00C49F" name="הסתיימו" />
-              <Bar dataKey="inProgress" fill="#FFBB28" name="בתהליך" />
-              <Bar dataKey="pending" fill="#FF8042" name="ממתינים" />
+              <Bar 
+                dataKey="completed" 
+                fill={STATUS_COLORS.completed}
+                name="הסתיימו"
+                radius={[2, 2, 0, 0]}
+              />
+              <Bar 
+                dataKey="inProgress" 
+                fill={STATUS_COLORS.inProgress}
+                name="בתהליך"
+                radius={[2, 2, 0, 0]}
+              />
+              <Bar 
+                dataKey="pending" 
+                fill={STATUS_COLORS.pending}
+                name="ממתינים"
+                radius={[2, 2, 0, 0]}
+              />
             </BarChart>
           </ResponsiveContainer>
+          
+          {/* Legend */}
+          <div className="flex justify-center gap-6 mt-4">
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded" style={{ backgroundColor: STATUS_COLORS.completed }}></div>
+              <span className="text-sm font-medium">הסתיימו</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded" style={{ backgroundColor: STATUS_COLORS.inProgress }}></div>
+              <span className="text-sm font-medium">בתהליך</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded" style={{ backgroundColor: STATUS_COLORS.pending }}></div>
+              <span className="text-sm font-medium">ממתינים</span>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -135,40 +197,46 @@ export const StatisticsChart: React.FC<StatisticsChartProps> = ({ audits }) => {
                 fill="#8884d8"
                 dataKey="value"
                 label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                labelLine={false}
               >
                 {statusData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                 ))}
               </Pie>
-              <Tooltip />
+              <Tooltip content={<PieTooltip />} />
             </PieChart>
           </ResponsiveContainer>
         </CardContent>
       </Card>
 
       {/* Client Distribution */}
-      <Card className="lg:col-span-2">
+      <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <ClipboardList className="h-5 w-5" />
-            התפלגות לפי לקוח (8 הלקוחות המובילים)
+            לקוחות מובילים
           </CardTitle>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={clientData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" />
+            <BarChart data={clientData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis 
                 dataKey="name" 
-                tick={{ fontSize: 12 }}
+                tick={{ fontSize: 10 }}
                 interval={0}
                 angle={-45}
                 textAnchor="end"
                 height={60}
               />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="value" fill="#0088FE" name="מספר סקרים" />
+              <YAxis tick={{ fontSize: 12 }} />
+              <Tooltip content={<PieTooltip />} />
+              <Bar 
+                dataKey="value" 
+                fill="#3b82f6" 
+                name="מספר סקרים"
+                radius={[2, 2, 0, 0]}
+              />
             </BarChart>
           </ResponsiveContainer>
         </CardContent>

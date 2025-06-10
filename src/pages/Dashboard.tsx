@@ -8,7 +8,7 @@ import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { StatusCards } from "@/components/dashboard/StatusCards";
 import { GroupedAuditsTable } from "@/components/dashboard/GroupedAuditsTable";
 import { StatisticsChart } from "@/components/dashboard/StatisticsChart";
-import { AuditForm } from "@/components/AuditForm";
+import { AuditFormModal } from "@/components/AuditFormModal";
 import { getStoredAudits } from "@/utils/auditStorage";
 import { Audit } from "@/types/types";
 import { useAuthManager } from "@/hooks/useAuthManager";
@@ -16,7 +16,7 @@ import { getCurrentUser } from "@/utils/supabaseAuth";
 
 const Dashboard = () => {
   const [audits, setAudits] = useState<Audit[]>(getStoredAudits(null));
-  const [showAuditForm, setShowAuditForm] = useState(false);
+  const [showAuditModal, setShowAuditModal] = useState(false);
   const [showStatistics, setShowStatistics] = useState(false);
   const [editingAudit, setEditingAudit] = useState<Audit | null>(null);
   const navigate = useNavigate();
@@ -29,13 +29,13 @@ const Dashboard = () => {
 
   const handleFormSuccess = () => {
     refreshAudits();
-    setShowAuditForm(false);
+    setShowAuditModal(false);
     setEditingAudit(null);
   };
 
   const handleEditAudit = (audit: Audit) => {
     setEditingAudit(audit);
-    setShowAuditForm(true);
+    setShowAuditModal(true);
   };
 
   const handleDeleteAudit = () => {
@@ -68,23 +68,6 @@ const Dashboard = () => {
   // Check if user is Chen (manager) to show statistics
   const isManager = currentUser?.role === "מנהלת" || currentUser?.email === "chen@example.com";
 
-  if (showAuditForm) {
-    return (
-      <div className="min-h-screen bg-gray-50" dir="rtl">
-        <AuditForm
-          audit={editingAudit}
-          onSubmit={handleFormSuccess}
-          onCancel={() => {
-            setShowAuditForm(false);
-            setEditingAudit(null);
-          }}
-          mode={editingAudit ? "edit" : "create"}
-          currentUser={currentUser}
-        />
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gray-50" dir="rtl">
       <DashboardHeader
@@ -99,7 +82,7 @@ const Dashboard = () => {
           <div className="flex justify-between items-center mb-6">
             <div className="flex gap-3">
               <Button
-                onClick={() => setShowAuditForm(true)}
+                onClick={() => setShowAuditModal(true)}
                 className="flex items-center gap-2"
               >
                 <Plus className="h-4 w-4" />
@@ -153,6 +136,19 @@ const Dashboard = () => {
           </div>
         </div>
       </main>
+
+      {/* Audit Form Modal */}
+      <AuditFormModal
+        isOpen={showAuditModal}
+        onClose={() => {
+          setShowAuditModal(false);
+          setEditingAudit(null);
+        }}
+        audit={editingAudit}
+        onSubmit={handleFormSuccess}
+        mode={editingAudit ? "edit" : "create"}
+        currentUser={currentUser}
+      />
     </div>
   );
 };
