@@ -1,4 +1,5 @@
-import { useState, useCallback, useEffect } from "react";
+
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,6 +29,7 @@ const ArchivePage = () => {
   
   const { canDelete, canEdit } = useAuditPermissions(currentUser);
 
+  // Memoized loadAudits function to prevent recreation
   const loadAudits = useCallback(async () => {
     console.log("[Archive] loadAudits called, currentUser:", currentUser);
     
@@ -56,33 +58,34 @@ const ArchivePage = () => {
       setLoading(false);
       console.log("[Archive] Loading completed");
     }
-  }, [currentUser?.email, currentUser?.role]); // Fixed dependency array
+  }, [currentUser?.email, currentUser?.role]);
 
   useEffect(() => {
     console.log("[Archive] useEffect triggered");
     loadAudits();
   }, [loadAudits]);
 
-  // Filter out archived audits from main dashboard
-  const archivedAudits = audits.filter(audit => 
-    isAuditInArchiveView(audit)
-  );
+  // Memoize archived audits calculation
+  const archivedAudits = useMemo(() => 
+    audits.filter(audit => isAuditInArchiveView(audit))
+  , [audits]);
   
   console.log("[Archive] Total audits:", audits.length, "Archived:", archivedAudits.length);
   
-  // Optimized search filtering
-  const displayedAudits = searchQuery.trim()
-    ? archivedAudits.filter(audit => {
-        const query = searchQuery.toLowerCase();
-        return (
-          audit.name.toLowerCase().includes(query) || 
-          audit.currentStatus.toLowerCase().includes(query) ||
-          (audit.clientName && audit.clientName.toLowerCase().includes(query))
-        );
-      })
-    : archivedAudits;
+  // Memoize search filtering
+  const displayedAudits = useMemo(() => {
+    if (!searchQuery.trim()) return archivedAudits;
+    
+    const query = searchQuery.toLowerCase();
+    return archivedAudits.filter(audit => 
+      audit.name.toLowerCase().includes(query) || 
+      audit.currentStatus.toLowerCase().includes(query) ||
+      (audit.clientName && audit.clientName.toLowerCase().includes(query))
+    );
+  }, [archivedAudits, searchQuery]);
 
-  const handleAuditDelete = async (auditId: string) => {
+  // Memoized delete handler
+  const handleAuditDelete = useCallback(async (auditId: string) => {
     console.log(`[Archive] Deleting audit ${auditId}`);
     
     try {
@@ -119,9 +122,10 @@ const ArchivePage = () => {
       console.error("[Archive] Error deleting audit:", error);
       toast.error("שגיאה במחיקת הסקר");
     }
-  };
+  }, [audits, currentUser, canDelete]);
 
-  const handleStatusChange = async (audit: Audit, newStatus: StatusType) => {
+  // Memoized status change handler
+  const handleStatusChange = useCallback(async (audit: Audit, newStatus: StatusType) => {
     console.log(`[Archive] Changing status of audit ${audit.id} to ${newStatus}`);
     
     try {
@@ -185,36 +189,40 @@ const ArchivePage = () => {
       console.error("[Archive] Error updating status:", error);
       toast.error("שגיאה בעדכון סטטוס הסקר");
     }
-  };
+  }, [currentUser, canEdit]);
 
-  const handleNavigateToArchive = () => {
+  // Memoized navigation handlers
+  const handleNavigateToArchive = useCallback(() => {
     console.log("[Archive] handleNavigateToArchive called - already on archive page");
     // We're already on archive page
-  };
+  }, []);
 
   const handleDataChange = useCallback(() => {
     console.log("[Archive] handleDataChange called - reloading data");
     loadAudits();
   }, [loadAudits]);
 
+  // Early return for no user
   if (!currentUser) {
     console.log("[Archive] No current user, redirecting to login");
     navigate('/');
     return null;
   }
 
+  // Early return for loading
   if (loading) {
     console.log("[Archive] Still loading...");
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center" dir="rtl">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900 mx-auto"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">טוען נתוני ארכיון...</p>
         </div>
       </div>
     );
   }
 
+  // Early return for error
   if (loadingError) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center" dir="rtl">

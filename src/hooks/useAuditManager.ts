@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Audit, User, StatusType } from '@/types/types';
 import { toast } from 'sonner';
 import { 
@@ -16,8 +16,9 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
   const [currentAudit, setCurrentAudit] = useState<Audit | null>(null);
   const [newlyCreatedAudit, setNewlyCreatedAudit] = useState<Audit | null>(null);
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
-  
-  useEffect(() => {
+
+  // Memoized loadAudits function to prevent recreation on every render
+  const loadAudits = useCallback(async () => {
     if (!user) {
       console.log("[useAuditManager] No user, setting empty audits");
       setAudits([]);
@@ -27,44 +28,51 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
     
     console.log(`[useAuditManager] Loading audits for user: ${user.email}, role: ${user.role}`);
     
-    const loadAudits = async () => {
-      try {
-        setLoading(true);
-        
-        const supabaseAudits = await getAudits(user.email, user.role);
-        console.log(`[useAuditManager] Loaded ${supabaseAudits.length} audits from Supabase`);
-        
-        setAudits(supabaseAudits);
-      } catch (error) {
-        console.error("[useAuditManager] Error loading audits:", error);
-        toast.error("שגיאה בטעינת נתוני הסקרים");
-        setAudits([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
+    try {
+      setLoading(true);
+      
+      const supabaseAudits = await getAudits(user.email, user.role);
+      console.log(`[useAuditManager] Loaded ${supabaseAudits.length} audits from Supabase`);
+      
+      setAudits(supabaseAudits);
+    } catch (error) {
+      console.error("[useAuditManager] Error loading audits:", error);
+      toast.error("שגיאה בטעינת נתוני הסקרים");
+      setAudits([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.email, user?.role]); // Only depend on user email and role
+  
+  useEffect(() => {
     loadAudits();
-  }, [user]);
+  }, [loadAudits]);
 
-  // Filter audits based on user role
-  const filteredAudits = user ? (
-    user.role === "מנהלת" || user.role === "מנהל מערכת" || user.isAdmin
+  // Filter audits based on user role - memoized to prevent recalculation
+  const filteredAudits = useState(() => {
+    if (!user) return [];
+    
+    return user.role === "מנהלת" || user.role === "מנהל מערכת" || user.isAdmin
       ? audits // Managers see ALL audits
-      : audits.filter(audit => audit.ownerId === user.email) // Auditors see only their audits
-  ) : [];
+      : audits.filter(audit => audit.ownerId === user.email); // Auditors see only their audits
+  })[0];
 
-  const handleCreateAudit = () => {
+  // Update filtered audits when audits or user changes
+  useEffect(() => {
+    // This effect is intentionally minimal to avoid loops
+  }, [audits, user]);
+
+  const handleCreateAudit = useCallback(() => {
     setFormMode("create");
     setCurrentAudit(null);
-  };
+  }, []);
 
-  const handleEditAudit = (audit: Audit) => {
+  const handleEditAudit = useCallback((audit: Audit) => {
     setFormMode("edit");
     setCurrentAudit(audit);
-  };
+  }, []);
 
-  const handleDeleteAudit = async (id: string, canDelete: (auditOwnerId: string) => boolean) => {
+  const handleDeleteAudit = useCallback(async (id: string, canDelete: (auditOwnerId: string) => boolean) => {
     try {
       const auditToDelete = audits.find(audit => audit.id === id);
       
@@ -81,11 +89,8 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
       const success = await deleteAuditById(id);
       
       if (success) {
-        // Refresh audits from database
-        if (user) {
-          const updatedAudits = await getAudits(user.email, user.role);
-          setAudits(updatedAudits);
-        }
+        // Update local state instead of reloading to prevent loops
+        setAudits(prevAudits => prevAudits.filter(audit => audit.id !== id));
         toast.success("הסקר נמחק בהצלחה");
         console.log(`[handleDeleteAudit] Successfully deleted audit ${id}`);
       } else {
@@ -95,9 +100,9 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
       console.error("[handleDeleteAudit] Error:", error);
       toast.error("שגיאה במחיקת הסקר");
     }
-  };
+  }, [audits]);
   
-  const handleStatusChange = async (audit: Audit, newStatus: StatusType) => {
+  const handleStatusChange = useCallback(async (audit: Audit, newStatus: StatusType) => {
     try {
       if (!user) {
         toast.error("נדרש להיות מחובר כדי לעדכן סטטוס");
@@ -118,9 +123,27 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
       const success = await updateAuditStatusInDb(audit.id, newStatus, reason, user.name);
       
       if (success) {
-        // Refresh audits from database
-        const updatedAudits = await getAudits(user.email, user.role);
-        setAudits(updatedAudits);
+        // Update local state instead of reloading to prevent loops
+        setAudits(prevAudits => 
+          prevAudits.map(a => 
+            a.id === audit.id 
+              ? { 
+                  ...a, 
+                  currentStatus: newStatus,
+                  statusLog: [{
+                    id: crypto.randomUUID(),
+                    timestamp: new Date(),
+                    oldStatus: audit.currentStatus,
+                    newStatus,
+                    oldDate: null,
+                    newDate: null,
+                    reason,
+                    modifiedBy: user.name
+                  }, ...a.statusLog]
+                }
+              : a
+          )
+        );
         toast.success(`סטטוס הסקר עודכן ל-${newStatus}`);
       } else {
         throw new Error("שגיאה בעדכון הסטטוס");
@@ -129,9 +152,9 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
       console.error("[handleStatusChange] Error:", error);
       toast.error("שגיאה בעדכון סטטוס הסקר");
     }
-  };
+  }, [user]);
 
-  const handleAuditSubmit = async (auditData: Partial<Audit>, canEdit: (auditOwnerId: string) => boolean): Promise<Audit | null> => {
+  const handleAuditSubmit = useCallback(async (auditData: Partial<Audit>, canEdit: (auditOwnerId: string) => boolean): Promise<Audit | null> => {
     if (!user) {
       toast.error("נדרש להיות מחובר כדי לשמור סקר");
       return null;
@@ -141,9 +164,8 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
       if (formMode === "create") {
         const newAudit = await createNewAudit(auditData, user.email, user.name);
         
-        // Refresh audits from database to include the new audit
-        const updatedAudits = await getAudits(user.email, user.role);
-        setAudits(updatedAudits);
+        // Update local state instead of reloading to prevent loops
+        setAudits(prevAudits => [newAudit, ...prevAudits]);
         
         console.log("[handleAuditSubmit] Created new audit:", newAudit);
         toast.success("סקר חדש נוצר בהצלחה");
@@ -157,9 +179,12 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
         
         const updatedAudit = await updateExistingAudit(currentAudit.id, auditData, user.name);
         
-        // Refresh audits from database
-        const updatedAudits = await getAudits(user.email, user.role);
-        setAudits(updatedAudits);
+        // Update local state instead of reloading to prevent loops
+        setAudits(prevAudits => 
+          prevAudits.map(audit => 
+            audit.id === currentAudit.id ? updatedAudit : audit
+          )
+        );
         
         toast.success("סקר עודכן בהצלחה");
         return updatedAudit;
@@ -171,9 +196,9 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
       toast.error("שגיאה בשמירת הסקר");
       return null;
     }
-  };
+  }, [formMode, currentAudit, user]);
 
-  const sendNotificationEmail = async (audit: Audit, recipients: string[], subject: string, body: string) => {
+  const sendNotificationEmail = useCallback(async (audit: Audit, recipients: string[], subject: string, body: string) => {
     if (!user) {
       toast.error("נדרש להיות מחובר כדי לשלוח התראות");
       return false;
@@ -189,11 +214,18 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
       toast.error("שגיאה בשליחת ההודעה");
       return false;
     }
-  };
+  }, [user]);
+
+  // Calculate filtered audits properly
+  const actualFilteredAudits = user ? (
+    user.role === "מנהלת" || user.role === "מנהל מערכת" || user.isAdmin
+      ? audits // Managers see ALL audits
+      : audits.filter(audit => audit.ownerId === user.email) // Auditors see only their audits
+  ) : [];
 
   return {
     audits,
-    filteredAudits,
+    filteredAudits: actualFilteredAudits,
     currentAudit,
     newlyCreatedAudit,
     formMode,

@@ -1,4 +1,5 @@
-import { useState, useCallback } from "react";
+
+import { useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -51,7 +52,8 @@ const Dashboard = () => {
   console.log("[Dashboard] Total audits:", audits.length);
   console.log("[Dashboard] Filtered audits:", filteredAudits.length);
 
-  const handleFormSuccess = async (auditData: Partial<Audit>) => {
+  // Memoize form success handler to prevent recreation
+  const handleFormSuccess = useCallback(async (auditData: Partial<Audit>) => {
     console.log("[Dashboard] Form success with data:", auditData);
     
     const result = await handleAuditSubmit(auditData, canEdit);
@@ -73,20 +75,23 @@ const Dashboard = () => {
     
     setShowAuditModal(false);
     setCurrentAudit(null);
-  };
+  }, [handleAuditSubmit, canEdit, formMode, setNewlyCreatedAudit, setCurrentAudit]);
 
-  const handleEdit = (audit: Audit) => {
+  // Memoize edit handler
+  const handleEdit = useCallback((audit: Audit) => {
     console.log("[Dashboard] Editing audit:", audit.id);
     handleEditAudit(audit);
     setShowAuditModal(true);
-  };
+  }, [handleEditAudit]);
 
-  const handleDelete = async (id: string) => {
+  // Memoize delete handler
+  const handleDelete = useCallback(async (id: string) => {
     console.log("[Dashboard] Deleting audit:", id);
     await handleDeleteAudit(id, canDelete);
-  };
+  }, [handleDeleteAudit, canDelete]);
 
-  const handleStatus = async (audit: Audit, newStatus: StatusType) => {
+  // Memoize status handler
+  const handleStatus = useCallback(async (audit: Audit, newStatus: StatusType) => {
     console.log("[Dashboard] Changing status for audit:", audit.id, "to:", newStatus);
     
     await handleStatusChange(audit, newStatus);
@@ -95,40 +100,58 @@ const Dashboard = () => {
     if (newStatus === "הסתיים") {
       addToArchive(audit.id);
     }
-  };
+  }, [handleStatusChange]);
 
-  const handleNavigateToArchive = () => {
+  // Memoize navigation handlers
+  const handleNavigateToArchive = useCallback(() => {
     navigate("/archive");
-  };
+  }, [navigate]);
 
-  const handleNavigateToAdmin = () => {
+  const handleNavigateToAdmin = useCallback(() => {
     navigate("/admin");
-  };
+  }, [navigate]);
 
-  const handleEmailClick = (audit: Audit) => {
+  const handleEmailClick = useCallback((audit: Audit) => {
     setNewlyCreatedAudit(audit);
     setShowEmailModal(true);
-  };
+  }, [setNewlyCreatedAudit]);
 
-  // Check if user is manager to show statistics
-  const isManager = currentUser?.role === "מנהלת" || currentUser?.email === "chen@citadel.co.il";
+  // Check if user is manager to show statistics - memoized
+  const isManager = useMemo(() => 
+    currentUser?.role === "מנהלת" || currentUser?.email === "chen@citadel.co.il"
+  , [currentUser?.role, currentUser?.email]);
 
+  // Memoize active audits calculation
+  const activeAudits = useMemo(() => 
+    filteredAudits.filter(audit => !isAuditInArchiveView(audit))
+  , [filteredAudits]);
+
+  console.log("[Dashboard] Active audits to display:", activeAudits.length);
+
+  // Early returns for loading states
   if (!currentUser) {
     console.log("[Dashboard] No current user, returning loading");
-    return <div>טוען...</div>;
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center" dir="rtl">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">טוען משתמש...</p>
+        </div>
+      </div>
+    );
   }
 
   if (loading) {
     console.log("[Dashboard] Still loading audits");
-    return <div>טוען נתוני סקרים...</div>;
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center" dir="rtl">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">טוען נתוני סקרים...</p>
+        </div>
+      </div>
+    );
   }
-
-  // Filter out archived audits from main dashboard
-  const activeAudits = filteredAudits.filter(audit => 
-    !isAuditInArchiveView(audit)
-  );
-
-  console.log("[Dashboard] Active audits to display:", activeAudits.length);
 
   return (
     <div className="min-h-screen bg-gray-50" dir="rtl">

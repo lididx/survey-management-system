@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User } from '@/types/types';
 import { toast } from 'sonner';
@@ -10,43 +10,43 @@ export const useAuthManager = () => {
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const checkAuthStatus = async () => {
-      try {
-        console.log("[useAuthManager] Checking for logged in user");
-        
-        // Check for current user
-        const currentUser = getCurrentUser();
-        console.log("[useAuthManager] User check result:", currentUser);
-        
-        if (currentUser) {
-          console.log(`[useAuthManager] User logged in: ${currentUser.email}`);
-          setUser(currentUser);
-          setIsLoading(false);
-          return;
-        }
-        
-        console.log("[useAuthManager] No user data found");
-        setUser(null);
-        setIsLoading(false);
-        
-        // Only navigate to login if we're not already on the login page
-        if (window.location.pathname !== '/') {
-          console.log("[useAuthManager] Navigating to login page");
-          navigate("/", { replace: true });
-        }
-      } catch (error) {
-        console.error("[useAuthManager] Error while checking authentication:", error);
-        setUser(null);
-        setIsLoading(false);
-        toast.error("שגיאה באימות המשתמש");
-        
-        if (window.location.pathname !== '/') {
-          navigate("/", { replace: true });
-        }
+  // Memoized check auth function to prevent recreation
+  const checkAuthStatus = useCallback(async () => {
+    try {
+      console.log("[useAuthManager] Checking for logged in user");
+      
+      // Check for current user
+      const currentUser = getCurrentUser();
+      console.log("[useAuthManager] User check result:", currentUser);
+      
+      if (currentUser) {
+        console.log(`[useAuthManager] User logged in: ${currentUser.email}`);
+        setUser(currentUser);
+        return;
       }
-    };
+      
+      console.log("[useAuthManager] No user data found");
+      setUser(null);
+      
+      // Only navigate to login if we're not already on the login page
+      if (window.location.pathname !== '/') {
+        console.log("[useAuthManager] Navigating to login page");
+        navigate("/", { replace: true });
+      }
+    } catch (error) {
+      console.error("[useAuthManager] Error while checking authentication:", error);
+      setUser(null);
+      toast.error("שגיאה באימות המשתמש");
+      
+      if (window.location.pathname !== '/') {
+        navigate("/", { replace: true });
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, [navigate]);
 
+  useEffect(() => {
     checkAuthStatus();
     
     // Listen for storage changes to sync auth state across tabs
@@ -62,9 +62,9 @@ export const useAuthManager = () => {
     return () => {
       window.removeEventListener('storage', handleStorageChange);
     };
-  }, [navigate]);
+  }, [checkAuthStatus]);
 
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     try {
       console.log(`[useAuthManager] Logging out user: ${user?.email}`);
       
@@ -82,14 +82,14 @@ export const useAuthManager = () => {
       // Force navigation even if there's an error
       navigate("/", { replace: true });
     }
-  };
+  }, [user?.email, navigate]);
 
   // Method to manually refresh user data
-  const refreshUser = () => {
+  const refreshUser = useCallback(() => {
     const currentUser = getCurrentUser();
     console.log("[useAuthManager] Refreshing user data:", currentUser);
     setUser(currentUser);
-  };
+  }, []);
 
   return { 
     user, 
