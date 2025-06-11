@@ -29,12 +29,12 @@ const transformDbAuditToAppAudit = (dbAudit: any): Audit => {
   };
 };
 
-// Get all audits with contacts and status log
+// Get all audits with contacts and status log - RLS will handle filtering
 export const getAudits = async (currentUser: User): Promise<Audit[]> => {
-  console.log(`[getAudits] Getting audits for ${currentUser.email} with role ${currentUser.role}`);
+  console.log(`[getAudits] Getting audits - RLS will filter based on user permissions`);
   
   try {
-    // Get audits based on user role - RLS will handle the filtering
+    // Get audits - RLS will automatically filter based on user role and ownership
     const { data: auditsData, error: auditsError } = await supabase
       .from('audits')
       .select('*')
@@ -48,7 +48,7 @@ export const getAudits = async (currentUser: User): Promise<Audit[]> => {
     }
 
     if (!auditsData || auditsData.length === 0) {
-      console.log("[getAudits] No audits found");
+      console.log("[getAudits] No audits found (filtered by RLS)");
       return [];
     }
 
@@ -58,7 +58,7 @@ export const getAudits = async (currentUser: User): Promise<Audit[]> => {
     for (const dbAudit of auditsData) {
       const audit = transformDbAuditToAppAudit(dbAudit);
       
-      // Load contacts
+      // Load contacts - RLS will handle filtering
       const { data: contactsData } = await supabase
         .from('contacts')
         .select('*')
@@ -75,7 +75,7 @@ export const getAudits = async (currentUser: User): Promise<Audit[]> => {
         }));
       }
 
-      // Load status log
+      // Load status log - RLS will handle filtering
       const { data: statusLogData } = await supabase
         .from('status_log')
         .select('*')
@@ -98,7 +98,7 @@ export const getAudits = async (currentUser: User): Promise<Audit[]> => {
       audits.push(audit);
     }
     
-    console.log(`[getAudits] Retrieved ${audits.length} audits from Supabase`);
+    console.log(`[getAudits] Retrieved ${audits.length} audits from Supabase (filtered by RLS)`);
     return audits;
   } catch (error) {
     console.error("[getAudits] Error:", error);
@@ -114,7 +114,7 @@ export const createNewAudit = async (auditData: Partial<Audit>, currentUser: Use
   try {
     const newAuditId = crypto.randomUUID();
     
-    // Insert audit
+    // Insert audit with proper user_id for RLS
     const { data: auditResult, error: auditError } = await supabase
       .from('audits')
       .insert({
@@ -128,7 +128,7 @@ export const createNewAudit = async (auditData: Partial<Audit>, currentUser: Use
         current_status: 'התקבל',
         owner_id: currentUser.email, // Keep for backward compatibility
         owner_name: currentUser.name,
-        user_id: currentUser.id, // New auth-based field
+        user_id: currentUser.id, // Critical for RLS
         is_archived: false
       })
       .select()
@@ -205,7 +205,7 @@ export const updateExistingAudit = async (auditId: string, auditData: Partial<Au
   console.log(`[updateExistingAudit] Updating audit: ${auditId}`);
   
   try {
-    // Update audit
+    // Update audit - RLS will ensure only authorized users can update
     const updateData: any = {};
     if (auditData.name !== undefined) updateData.name = auditData.name;
     if (auditData.description !== undefined) updateData.description = auditData.description;
@@ -231,7 +231,7 @@ export const updateExistingAudit = async (auditId: string, auditData: Partial<Au
       throw updateError;
     }
 
-    // Update contacts if provided
+    // Update contacts if provided - RLS will handle authorization
     if (auditData.contacts) {
       // Delete existing contacts
       await supabase
@@ -272,7 +272,7 @@ export const updateExistingAudit = async (auditId: string, auditData: Partial<Au
   }
 };
 
-// Delete an audit
+// Delete an audit - RLS will handle authorization
 export const deleteAuditById = async (auditId: string): Promise<boolean> => {
   console.log(`[deleteAuditById] Deleting audit: ${auditId}`);
   
@@ -297,7 +297,7 @@ export const deleteAuditById = async (auditId: string): Promise<boolean> => {
   }
 };
 
-// Update audit status
+// Update audit status - RLS will handle authorization
 export const updateAuditStatusInDb = async (
   auditId: string,
   newStatus: StatusType,
@@ -307,7 +307,7 @@ export const updateAuditStatusInDb = async (
   console.log(`[updateAuditStatusInDb] Updating status for audit ${auditId} to ${newStatus}`);
   
   try {
-    // Get current status
+    // Get current status - RLS will ensure user can only see authorized audits
     const { data: currentAudit, error: fetchError } = await supabase
       .from('audits')
       .select('current_status')
@@ -319,7 +319,7 @@ export const updateAuditStatusInDb = async (
       return false;
     }
 
-    // Update audit status
+    // Update audit status - RLS will handle authorization
     const { error: updateError } = await supabase
       .from('audits')
       .update({
@@ -333,7 +333,7 @@ export const updateAuditStatusInDb = async (
       return false;
     }
 
-    // Insert status log entry
+    // Insert status log entry - RLS will handle authorization
     const { error: statusLogError } = await supabase
       .from('status_log')
       .insert({
@@ -357,7 +357,7 @@ export const updateAuditStatusInDb = async (
   }
 };
 
-// Archive/unarchive audit
+// Archive/unarchive audit - RLS will handle authorization
 export const updateAuditArchiveStatus = async (auditId: string, isArchived: boolean): Promise<boolean> => {
   console.log(`[updateAuditArchiveStatus] ${isArchived ? 'Archiving' : 'Unarchiving'} audit: ${auditId}`);
   
@@ -383,12 +383,12 @@ export const updateAuditArchiveStatus = async (auditId: string, isArchived: bool
   }
 };
 
-// Get archived audits
+// Get archived audits - RLS will handle filtering
 export const getArchivedAudits = async (currentUser: User): Promise<Audit[]> => {
-  console.log(`[getArchivedAudits] Getting archived audits for ${currentUser.email} with role ${currentUser.role}`);
+  console.log(`[getArchivedAudits] Getting archived audits - RLS will filter based on user permissions`);
   
   try {
-    // Get archived audits - RLS will handle the filtering
+    // Get archived audits - RLS will automatically filter
     const { data: auditsData, error: auditsError } = await supabase
       .from('audits')
       .select('*')
@@ -410,7 +410,7 @@ export const getArchivedAudits = async (currentUser: User): Promise<Audit[]> => 
     for (const dbAudit of auditsData) {
       const audit = transformDbAuditToAppAudit(dbAudit);
       
-      // Load contacts
+      // Load contacts - RLS will handle filtering
       const { data: contactsData } = await supabase
         .from('contacts')
         .select('*')
@@ -427,7 +427,7 @@ export const getArchivedAudits = async (currentUser: User): Promise<Audit[]> => 
         }));
       }
 
-      // Load status log
+      // Load status log - RLS will handle filtering
       const { data: statusLogData } = await supabase
         .from('status_log')
         .select('*')
@@ -450,7 +450,7 @@ export const getArchivedAudits = async (currentUser: User): Promise<Audit[]> => 
       audits.push(audit);
     }
     
-    console.log(`[getArchivedAudits] Retrieved ${audits.length} archived audits from Supabase`);
+    console.log(`[getArchivedAudits] Retrieved ${audits.length} archived audits from Supabase (filtered by RLS)`);
     return audits;
   } catch (error) {
     console.error("[getArchivedAudits] Error:", error);

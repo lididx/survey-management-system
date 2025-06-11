@@ -10,8 +10,8 @@ import { AuditsTable } from "@/components/dashboard/AuditsTable";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { useAuthManager } from "@/hooks/useAuthManager";
 import { useAuditPermissions } from "@/hooks/useAuditPermissions";
-import { isAuditInArchiveView, removeFromArchive } from "@/utils/archiveManager";
-import { getAudits, deleteAuditById, updateAuditStatusInDb } from "@/utils/supabase";
+import { isAuditInArchiveView } from "@/utils/archiveManager";
+import { getArchivedAudits, deleteAuditById, updateAuditStatusInDb } from "@/utils/supabase";
 
 const ArchivePage = () => {
   console.log("[Archive] Component rendering...");
@@ -40,13 +40,13 @@ const ArchivePage = () => {
     try {
       setLoading(true);
       setLoadingError(null);
-      console.log("[Archive] Starting to load audits...");
+      console.log("[Archive] Starting to load archived audits...");
       
-      // Load audits from database - pass full user object
-      const allAudits = await getAudits(user);
-      console.log("[Archive] Loaded audits:", allAudits.length);
+      // Load archived audits from database - RLS will handle filtering
+      const archivedAudits = await getArchivedAudits(user);
+      console.log("[Archive] Loaded archived audits:", archivedAudits.length);
       
-      setAudits(allAudits);
+      setAudits(archivedAudits);
     } catch (error) {
       console.error("[Archive] Error loading audits:", error);
       const errorMessage = "שגיאה בטעינת נתוני הסקרים";
@@ -63,12 +63,10 @@ const ArchivePage = () => {
     loadAudits();
   }, [loadAudits]);
 
-  // Memoize archived audits calculation
-  const archivedAudits = useMemo(() => 
-    audits.filter(audit => isAuditInArchiveView(audit))
-  , [audits]);
+  // Use audits directly since they're already filtered by RLS for archived status
+  const archivedAudits = audits;
   
-  console.log("[Archive] Total audits:", audits.length, "Archived:", archivedAudits.length);
+  console.log("[Archive] Total archived audits:", archivedAudits.length);
   
   // Memoize search filtering
   const displayedAudits = useMemo(() => {
@@ -103,13 +101,10 @@ const ArchivePage = () => {
         return;
       }
 
-      // Delete from database
+      // Delete from database - RLS will handle authorization
       const success = await deleteAuditById(auditId);
       
       if (success) {
-        // Remove from archive list as well
-        removeFromArchive(auditId);
-        
         // Update local state instead of reloading
         setAudits(prevAudits => prevAudits.filter(audit => audit.id !== auditId));
         toast.success("הסקר נמחק בהצלחה מהארכיון");
@@ -148,7 +143,7 @@ const ArchivePage = () => {
 
       const reason = `עדכון סטטוס ל-${newStatus} מהארכיון`;
       
-      // Update status in database
+      // Update status in database - RLS will handle authorization
       const success = await updateAuditStatusInDb(audit.id, newStatus, reason, user.name);
       
       if (success) {

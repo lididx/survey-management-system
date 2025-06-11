@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { Audit, User, StatusType } from '@/types/types';
 import { toast } from 'sonner';
@@ -30,8 +31,9 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
     try {
       setLoading(true);
       
+      // Load audits from Supabase - RLS will handle filtering
       const supabaseAudits = await getAudits(user);
-      console.log(`[useAuditManager] Loaded ${supabaseAudits.length} audits from Supabase`);
+      console.log(`[useAuditManager] Loaded ${supabaseAudits.length} audits from Supabase (filtered by RLS)`);
       
       setAudits(supabaseAudits);
     } catch (error) {
@@ -47,8 +49,8 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
     loadAudits();
   }, [loadAudits]);
 
-  // Filter audits based on user role - RLS handles this but we keep for UI consistency
-  const filteredAudits = audits; // RLS already filters at DB level
+  // RLS handles filtering at DB level, so we use audits directly
+  const filteredAudits = audits;
 
   const handleCreateAudit = useCallback(() => {
     setFormMode("create");
@@ -74,6 +76,7 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
         return;
       }
       
+      // Delete from database - RLS will handle authorization
       const success = await deleteAuditById(id);
       
       if (success) {
@@ -108,6 +111,8 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
       }
       
       const reason = `עדכון סטטוס ל-${newStatus}`;
+      
+      // Update status in database - RLS will handle authorization
       const success = await updateAuditStatusInDb(audit.id, newStatus, reason, user.name);
       
       if (success) {
@@ -150,6 +155,7 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
     
     try {
       if (formMode === "create") {
+        // Create new audit in database
         const newAudit = await createNewAudit(auditData, user);
         
         // Update local state instead of reloading to prevent loops
@@ -165,6 +171,7 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
           return null;
         }
         
+        // Update existing audit in database
         const updatedAudit = await updateExistingAudit(currentAudit.id, auditData, user.name);
         
         // Update local state instead of reloading to prevent loops
