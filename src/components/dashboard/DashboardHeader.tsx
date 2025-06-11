@@ -21,7 +21,7 @@ const DashboardHeader = ({
   onNotificationClick 
 }: DashboardHeaderProps) => {
   const [showNotifications, setShowNotifications] = useState(false);
-  const { logout } = useAuthManager();
+  const { handleLogout } = useAuthManager();
   const currentUser = getCurrentUser();
   
   // Get all audits for notifications (managers see all, auditors see their own)
@@ -108,7 +108,7 @@ const DashboardHeader = ({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={logout}
+                onClick={handleLogout}
                 className="flex items-center gap-2"
               >
                 <LogOut className="h-4 w-4" />
