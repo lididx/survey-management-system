@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,13 +25,13 @@ const Dashboard = () => {
   const [audits, setAudits] = useState<Audit[]>(() => {
     if (!currentUser) return [];
     
-    // בודקים רואים רק את הסקרים שלהם
-    if (currentUser.role === "בודק") {
-      return getStoredAudits(currentUser.email);
+    // מנהלת רואה את כל הסקרים
+    if (currentUser.role === "מנהלת") {
+      return getStoredAudits(null);
     }
     
-    // מנהלת רואה את כל הסקרים
-    return getStoredAudits(null);
+    // בודקים רואים רק את הסקרים שלהם
+    return getStoredAudits(currentUser.email);
   });
   
   const [showAuditModal, setShowAuditModal] = useState(false);
@@ -46,10 +45,10 @@ const Dashboard = () => {
     if (!currentUser) return;
     
     // רענון הסקרים לפי הרשאות המשתמש
-    if (currentUser.role === "בודק") {
-      setAudits(getStoredAudits(currentUser.email));
-    } else {
+    if (currentUser.role === "מנהלת") {
       setAudits(getStoredAudits(null));
+    } else {
+      setAudits(getStoredAudits(currentUser.email));
     }
   }, [currentUser]);
 
@@ -85,6 +84,11 @@ const Dashboard = () => {
       const updatedUserAudits = [newAudit, ...userAudits];
       
       if (saveAuditsToStorage(currentUser.email, updatedUserAudits)) {
+        // גם לעדכן באחסון הגלובלי
+        const globalAudits = getStoredAudits(null);
+        const otherUsersAudits = globalAudits.filter(audit => audit.ownerId !== currentUser.email);
+        saveAuditsToStorage(null, [...otherUsersAudits, ...updatedUserAudits]);
+        
         setNewlyCreatedAudit(newAudit);
         
         // רענון הרשימה
@@ -100,6 +104,32 @@ const Dashboard = () => {
         });
       } else {
         toast.error("שגיאה בשמירת הסקר החדש");
+      }
+    }
+    
+    // עדכון סקר קיים
+    if (editingAudit && createdAudit) {
+      const updatedAudit = {
+        ...editingAudit,
+        ...createdAudit
+      };
+
+      // עדכון הסקר באחסון המשתמש
+      const userAudits = getStoredAudits(currentUser.email);
+      const updatedUserAudits = userAudits.map(audit => 
+        audit.id === editingAudit.id ? updatedAudit : audit
+      );
+      
+      if (saveAuditsToStorage(currentUser.email, updatedUserAudits)) {
+        // גם לעדכן באחסון הגלובלי
+        const globalAudits = getStoredAudits(null);
+        const otherUsersAudits = globalAudits.filter(audit => audit.ownerId !== currentUser.email);
+        saveAuditsToStorage(null, [...otherUsersAudits, ...updatedUserAudits]);
+        
+        refreshAudits();
+        toast.success("סקר עודכן בהצלחה");
+      } else {
+        toast.error("שגיאה בעדכון הסקר");
       }
     }
     
@@ -139,6 +169,11 @@ const Dashboard = () => {
     const updatedUserAudits = userAudits.filter(audit => audit.id !== id);
     
     if (saveAuditsToStorage(currentUser.email, updatedUserAudits)) {
+      // גם לעדכן באחסון הגלובלי
+      const globalAudits = getStoredAudits(null);
+      const updatedGlobalAudits = globalAudits.filter(audit => audit.id !== id);
+      saveAuditsToStorage(null, updatedGlobalAudits);
+      
       refreshAudits();
       toast.success("סקר נמחק בהצלחה");
     } else {
@@ -152,7 +187,7 @@ const Dashboard = () => {
       return;
     }
 
-    if (!canEdit(audit.ownerId)) {
+    if (!canEdit(audit.ownerId) && currentUser.role !== "מנהלת") {
       toast.error("אין לך הרשאה לעדכן סקר זה");
       return;
     }
@@ -175,10 +210,16 @@ const Dashboard = () => {
     };
 
     // עדכון הסקר באחסון
-    const userAudits = getStoredAudits(currentUser.email);
+    const auditOwnerEmail = audit.ownerId;
+    const userAudits = getStoredAudits(auditOwnerEmail);
     const updatedUserAudits = userAudits.map(a => a.id === audit.id ? updatedAudit : a);
     
-    if (saveAuditsToStorage(currentUser.email, updatedUserAudits)) {
+    if (saveAuditsToStorage(auditOwnerEmail, updatedUserAudits)) {
+      // גם לעדכן באחסון הגלובלי
+      const globalAudits = getStoredAudits(null);
+      const updatedGlobalAudits = globalAudits.map(a => a.id === audit.id ? updatedAudit : a);
+      saveAuditsToStorage(null, updatedGlobalAudits);
+      
       refreshAudits();
       toast.success(`סטטוס הסקר עודכן ל-${newStatus}`);
     } else {
@@ -221,6 +262,9 @@ const Dashboard = () => {
   if (!currentUser) {
     return <div>טוען...</div>;
   }
+
+  // סינון הסקרים - מנהלת רואה הכל, בודק רק שלו
+  const filteredAudits = currentUser.role === "מנהלת" ? audits : audits.filter(audit => audit.ownerId === currentUser.email);
 
   return (
     <div className="min-h-screen bg-gray-50" dir="rtl">
@@ -275,14 +319,14 @@ const Dashboard = () => {
                 <CardTitle>דשבורד סטטיסטיקות</CardTitle>
               </CardHeader>
               <CardContent>
-                <StatisticsChart audits={audits} />
+                <StatisticsChart audits={filteredAudits} />
               </CardContent>
             </Card>
           )}
 
           {/* Status Cards */}
           <StatusCards 
-            audits={audits}
+            audits={filteredAudits}
             userRole={currentUser?.role || "בודק"}
             userEmail={currentUser?.email}
           />
@@ -290,7 +334,7 @@ const Dashboard = () => {
           {/* Audits Table */}
           <div className="mt-8">
             <GroupedAuditsTable
-              audits={audits}
+              audits={filteredAudits}
               userRole={currentUser?.role || "בודק"}
               canEdit={canEdit}
               canDelete={canDelete}

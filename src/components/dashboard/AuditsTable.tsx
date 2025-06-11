@@ -305,7 +305,8 @@ export const AuditsTable = ({
                           <Archive className="h-4 w-4" />
                         </Button>
                       )}
-                      {canDelete(audit.ownerId) && (
+                      {/* Delete button - only show in archive or for auditor's own audits */}
+                      {(isArchive || canDelete(audit.ownerId)) && (
                         <Button 
                           variant="destructive" 
                           size="sm" 
