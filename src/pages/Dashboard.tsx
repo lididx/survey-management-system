@@ -15,6 +15,7 @@ import { useAuthManager } from "@/hooks/useAuthManager";
 import { getCurrentUser } from "@/utils/supabaseAuth";
 import { useAuditPermissions } from "@/hooks/useAuditPermissions";
 import { toast } from "sonner";
+import { addToArchive, isAuditInArchiveView } from "@/utils/archiveManager";
 
 const Dashboard = () => {
   const { user } = useAuthManager();
@@ -220,8 +221,18 @@ const Dashboard = () => {
       const updatedGlobalAudits = globalAudits.map(a => a.id === audit.id ? updatedAudit : a);
       saveAuditsToStorage(null, updatedGlobalAudits);
       
+      // אם הסטטוס השתנה ל"הסתיים", הוסף לארכיון
+      if (newStatus === "הסתיים") {
+        addToArchive(audit.id);
+      }
+      
       refreshAudits();
       toast.success(`סטטוס הסקר עודכן ל-${newStatus}`);
+      
+      // רענון הדף לעדכון התצוגה
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     } else {
       toast.error("שגיאה בעדכון סטטוס הסקר");
     }
@@ -263,8 +274,10 @@ const Dashboard = () => {
     return <div>טוען...</div>;
   }
 
-  // סינון הסקרים - מנהלת רואה הכל, בודק רק שלו
-  const filteredAudits = currentUser.role === "מנהלת" ? audits : audits.filter(audit => audit.ownerId === currentUser.email);
+  // סינון הסקרים - הסרת סקרים שבארכיון מהעמוד הראשי
+  const activeAudits = filteredAudits.filter(audit => 
+    !isAuditInArchiveView(audit.id, audit.currentStatus)
+  );
 
   return (
     <div className="min-h-screen bg-gray-50" dir="rtl">
@@ -326,7 +339,7 @@ const Dashboard = () => {
 
           {/* Status Cards */}
           <StatusCards 
-            audits={filteredAudits}
+            audits={activeAudits}
             userRole={currentUser?.role || "בודק"}
             userEmail={currentUser?.email}
           />
@@ -334,7 +347,7 @@ const Dashboard = () => {
           {/* Audits Table */}
           <div className="mt-8">
             <GroupedAuditsTable
-              audits={filteredAudits}
+              audits={activeAudits}
               userRole={currentUser?.role || "בודק"}
               canEdit={canEdit}
               canDelete={canDelete}
@@ -376,3 +389,5 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+
+</initial_code>

@@ -3,15 +3,15 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Search, Archive, Home } from "lucide-react";
+import { Search, Archive } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Audit, StatusType } from "@/types/types";
 import { AuditsTable } from "@/components/dashboard/AuditsTable";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { useAuthManager } from "@/hooks/useAuthManager";
 import { useAuditPermissions } from "@/hooks/useAuditPermissions";
 import { useAuditManager } from "@/hooks/useAuditManager";
+import { isAuditInArchiveView, addToArchive } from "@/utils/archiveManager";
 
 const ArchivePage = () => {
   const { user, handleLogout } = useAuthManager();
@@ -29,9 +29,9 @@ const ArchivePage = () => {
   
   const { canDelete, canEdit } = useAuditPermissions(user);
 
-  // סינון סקרים שבארכיון בלבד
-  const archivedAudits = filteredAudits.filter(
-    audit => audit.currentStatus === "הסתיים"
+  // סינון סקרים לארכיון - בהתבסס על הלוגיקה החדשה
+  const archivedAudits = filteredAudits.filter(audit => 
+    isAuditInArchiveView(audit.id, audit.currentStatus)
   );
   
   const displayedAudits = searchQuery
@@ -48,11 +48,19 @@ const ArchivePage = () => {
     try {
       await handleStatusChange(audit, newStatus);
       
-      if (newStatus !== "הסתיים") {
-        toast.success("הסקר הוחזר לרשימת הסקרים הפעילים", {
-          description: `הסקר "${audit.name}" הועבר בהצלחה לסטטוס ${newStatus}`
-        });
+      // אם הסטטוס משתנה ל"הסתיים", הסקר יישאר בארכיון
+      if (newStatus === "הסתיים") {
+        addToArchive(audit.id);
+        toast.success(`סטטוס הסקר עודכן ל-${newStatus}`);
+      } else {
+        // אם הסטטוס משתנה לכל דבר אחר, הסקר יוחזר לעמוד הראשי אוטומטית
+        toast.success(`סטטוס הסקר עודכן ל-${newStatus} והוחזר לרשימת הסקרים הפעילים`);
       }
+      
+      // רענון הדף לעדכון התצוגה
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     } catch (error) {
       console.error("[Archive] Error changing status:", error);
       toast.error("שגיאה בעדכון סטטוס הסקר");
@@ -65,14 +73,14 @@ const ArchivePage = () => {
     try {
       await handleDeleteAudit(auditId, canDelete);
       toast.success("הסקר נמחק בהצלחה מהארכיון");
+      // רענון הדף לעדכון התצוגה
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
     } catch (error) {
       console.error("[Archive] Error deleting audit:", error);
       toast.error("שגיאה במחיקת הסקר");
     }
-  };
-
-  const handleBackToHome = () => {
-    navigate("/dashboard");
   };
 
   const handleNavigateToArchive = () => {
@@ -117,19 +125,11 @@ const ArchivePage = () => {
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <Archive className="h-5 w-5" />
-              <h2 className="text-xl font-semibold">ארכיון סקרים שהסתיימו</h2>
+              <h2 className="text-xl font-semibold">ארכיון סקרים</h2>
             </div>
           </div>
           
           <div className="flex items-center gap-4">
-            <Button
-              variant="outline"
-              onClick={handleBackToHome}
-              className="flex items-center gap-2"
-            >
-              <Home className="h-4 w-4" />
-              עמוד הבית
-            </Button>
             <div className="relative">
               <Search className="absolute right-3 top-2.5 h-4 w-4 text-gray-500" />
               <Input

@@ -31,6 +31,7 @@ import {
   SelectValue 
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { addToArchive, removeFromArchive } from "@/utils/archiveManager";
 
 interface AuditsTableProps {
   audits: Audit[];
@@ -100,7 +101,7 @@ export const AuditsTable = ({
   const handlePhoneClick = (phone: string, contactName: string) => {
     const cleanPhone = phone.replace(/[^\d]/g, '');
     
-    // תיקון: הוספת קידומת ישראל אם אין
+    // הוספת קידומת ישראל אם אין
     let formattedPhone = cleanPhone;
     if (cleanPhone.startsWith('0')) {
       formattedPhone = '972' + cleanPhone.substring(1);
@@ -109,11 +110,7 @@ export const AuditsTable = ({
     }
     
     const telUrl = `tel:+${formattedPhone}`;
-    
-    // יצירת אלמנט a זמני לפתיחת הקישור
-    const link = document.createElement('a');
-    link.href = telUrl;
-    link.click();
+    window.location.href = telUrl;
     
     toast.success(`נפתח חייגן עבור ${contactName}`);
   };
@@ -123,7 +120,16 @@ export const AuditsTable = ({
       toast.error("אין לך הרשאה לארכב סקר זה");
       return;
     }
-    onStatusChange(audit, "הסתיים");
+    
+    // Add to archive without changing status
+    const success = addToArchive(audit.id);
+    if (success) {
+      toast.success("הסקר הועבר לארכיון");
+      // Force page refresh to update the view
+      window.location.reload();
+    } else {
+      toast.error("שגיאה בהעברת הסקר לארכיון");
+    }
   };
 
   const handleRestoreAudit = (audit: Audit) => {
@@ -131,7 +137,16 @@ export const AuditsTable = ({
       toast.error("אין לך הרשאה להחזיר סקר זה");
       return;
     }
-    onStatusChange(audit, "בבקרה");
+    
+    // Remove from archive without changing status
+    const success = removeFromArchive(audit.id);
+    if (success) {
+      toast.success("הסקר הוחזר לרשימת הסקרים הפעילים");
+      // Force page refresh to update the view
+      window.location.reload();
+    } else {
+      toast.error("שגיאה בהחזרת הסקר");
+    }
   };
   
   const getStatusBadge = (status: StatusType, audit: Audit) => {
@@ -150,26 +165,7 @@ export const AuditsTable = ({
       justifyContent: 'center'
     };
 
-    if (isArchive) {
-      return (
-        <Select 
-          value={status}
-          onValueChange={(value: StatusType) => onStatusChange(audit, value)}
-          disabled={!canEdit(audit.ownerId)}
-        >
-          <SelectTrigger className="w-full px-2 py-1 h-auto bg-transparent border-0 hover:bg-gray-100">
-            <span style={customBadgeStyle}>{status}</span>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="בבקרה">בבקרה</SelectItem>
-            <SelectItem value="בכתיבה">בכתיבה</SelectItem>
-            <SelectItem value="התקבל">התקבל</SelectItem>
-            <SelectItem value="הסתיים">הסתיים</SelectItem>
-          </SelectContent>
-        </Select>
-      );
-    }
-
+    // Allow status changes in archive view
     if (userRole === "מנהלת" && !canEdit(audit.ownerId)) {
       return (
         <Select 

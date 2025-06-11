@@ -20,6 +20,7 @@ export const useNotifications = (audits: Audit[]) => {
   const saveNotificationsToStorage = useCallback((notifs: Notification[]) => {
     try {
       localStorage.setItem('notifications', JSON.stringify(notifs));
+      console.log(`[useNotifications] Saved ${notifs.length} notifications to storage`);
     } catch (error) {
       console.error('Error saving notifications to storage:', error);
     }
@@ -31,10 +32,12 @@ export const useNotifications = (audits: Audit[]) => {
       const stored = localStorage.getItem('notifications');
       if (stored) {
         const parsed = JSON.parse(stored);
-        return parsed.map((n: any) => ({
+        const notifications = parsed.map((n: any) => ({
           ...n,
           timestamp: new Date(n.timestamp)
         }));
+        console.log(`[useNotifications] Loaded ${notifications.length} notifications from storage`);
+        return notifications;
       }
     } catch (error) {
       console.error('Error loading notifications from storage:', error);
@@ -122,6 +125,7 @@ export const useNotifications = (audits: Audit[]) => {
   }, [audits, loadNotificationsFromStorage, saveNotificationsToStorage]);
 
   const markAsRead = useCallback((notificationId: string) => {
+    console.log(`[useNotifications] Marking notification ${notificationId} as read`);
     setNotifications(prev => {
       const updated = prev.map(notification => 
         notification.id === notificationId 
@@ -134,17 +138,20 @@ export const useNotifications = (audits: Audit[]) => {
   }, [saveNotificationsToStorage]);
 
   const deleteNotification = useCallback((notificationId: string) => {
+    console.log(`[useNotifications] Deleting notification ${notificationId}`);
     setNotifications(prev => {
       const updated = prev.filter(notification => notification.id !== notificationId);
       saveNotificationsToStorage(updated);
+      console.log(`[useNotifications] Remaining notifications: ${updated.length}`);
       return updated;
     });
   }, [saveNotificationsToStorage]);
 
   const clearAllNotifications = useCallback(() => {
+    console.log(`[useNotifications] Clearing all ${notifications.length} notifications`);
     setNotifications([]);
     saveNotificationsToStorage([]);
-  }, [saveNotificationsToStorage]);
+  }, [saveNotificationsToStorage, notifications.length]);
 
   const unreadCount = notifications.filter(n => !n.read).length;
 

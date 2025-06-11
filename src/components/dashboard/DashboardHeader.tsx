@@ -2,12 +2,13 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Bell, Archive, Settings, LogOut } from "lucide-react";
+import { Bell, Archive, Settings, LogOut, Home } from "lucide-react";
 import { NotificationsSidebar } from "@/components/notifications/NotificationsSidebar";
 import { useAuthManager } from "@/hooks/useAuthManager";
 import { getCurrentUser } from "@/utils/supabaseAuth";
 import { getStoredAudits } from "@/utils/auditStorage";
 import { useNotifications } from "@/hooks/useNotifications";
+import { useNavigate, useLocation } from "react-router-dom";
 
 interface DashboardHeaderProps {
   onNavigateToArchive: () => void;
@@ -23,6 +24,8 @@ const DashboardHeader = ({
   const [showNotifications, setShowNotifications] = useState(false);
   const { handleLogout } = useAuthManager();
   const currentUser = getCurrentUser();
+  const navigate = useNavigate();
+  const location = useLocation();
   
   // Get all audits for notifications (managers see all, auditors see their own)
   const allAudits = currentUser?.role === "מנהלת" 
@@ -42,6 +45,12 @@ const DashboardHeader = ({
     onNotificationClick(auditId);
     setShowNotifications(false);
   };
+
+  const handleNavigateToHome = () => {
+    navigate("/dashboard");
+  };
+
+  const isOnHomePage = location.pathname === "/dashboard";
 
   return (
     <>
@@ -101,6 +110,19 @@ const DashboardHeader = ({
                 >
                   <Settings className="h-4 w-4" />
                   ניהול
+                </Button>
+              )}
+
+              {/* Home button - show only when not on home page */}
+              {!isOnHomePage && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleNavigateToHome}
+                  className="flex items-center gap-2"
+                >
+                  <Home className="h-4 w-4" />
+                  עמוד הבית
                 </Button>
               )}
 
