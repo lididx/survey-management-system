@@ -12,7 +12,6 @@ import { AuditFormModal } from "@/components/AuditFormModal";
 import { EmailTemplatePopup } from "@/components/EmailTemplatePopup";
 import { Audit, StatusType } from "@/types/types";
 import { useAuthManager } from "@/hooks/useAuthManager";
-import { getCurrentUser } from "@/utils/supabaseAuth";
 import { useAuditPermissions } from "@/hooks/useAuditPermissions";
 import { useAuditManager } from "@/hooks/useAuditManager";
 import { toast } from "sonner";
@@ -20,11 +19,10 @@ import { addToArchive, isAuditInArchiveView } from "@/utils/archiveManager";
 
 const Dashboard = () => {
   const { user } = useAuthManager();
-  const currentUser = getCurrentUser();
-  const { canEdit, canDelete } = useAuditPermissions(currentUser);
+  const { canEdit, canDelete } = useAuditPermissions(user);
   
-  console.log("[Dashboard] Current user:", currentUser);
-  console.log("[Dashboard] User role:", currentUser?.role);
+  console.log("[Dashboard] Current user:", user);
+  console.log("[Dashboard] User role:", user?.role);
   
   // Use the useAuditManager hook properly
   const {
@@ -42,7 +40,7 @@ const Dashboard = () => {
     handleDeleteAudit,
     handleStatusChange,
     handleAuditSubmit
-  } = useAuditManager([], currentUser);
+  } = useAuditManager([], user);
   
   const [showAuditModal, setShowAuditModal] = useState(false);
   const [showStatistics, setShowStatistics] = useState(false);
@@ -118,8 +116,8 @@ const Dashboard = () => {
 
   // Check if user is manager to show statistics - memoized
   const isManager = useMemo(() => 
-    currentUser?.role === "מנהלת" || currentUser?.email === "chen@citadel.co.il"
-  , [currentUser?.role, currentUser?.email]);
+    user?.role === "מנהלת" || user?.email === "chen@citadel.co.il"
+  , [user?.role, user?.email]);
 
   // Memoize active audits calculation
   const activeAudits = useMemo(() => 
@@ -129,8 +127,8 @@ const Dashboard = () => {
   console.log("[Dashboard] Active audits to display:", activeAudits.length);
 
   // Early returns for loading states
-  if (!currentUser) {
-    console.log("[Dashboard] No current user, returning loading");
+  if (!user) {
+    console.log("[Dashboard] No user, returning loading");
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center" dir="rtl">
         <div className="text-center">
@@ -157,7 +155,7 @@ const Dashboard = () => {
     <div className="min-h-screen bg-gray-50" dir="rtl">
       <DashboardHeader
         onNavigateToArchive={handleNavigateToArchive}
-        onNavigateToAdmin={currentUser?.isAdmin ? handleNavigateToAdmin : undefined}
+        onNavigateToAdmin={user?.isAdmin ? handleNavigateToAdmin : undefined}
       />
       
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
@@ -212,14 +210,14 @@ const Dashboard = () => {
 
           <StatusCards 
             audits={activeAudits}
-            userRole={currentUser?.role || "בודק"}
-            userEmail={currentUser?.email}
+            userRole={user?.role || "בודק"}
+            userEmail={user?.email}
           />
           
           <div className="mt-8">
             <GroupedAuditsTable
               audits={activeAudits}
-              userRole={currentUser?.role || "בודק"}
+              userRole={user?.role || "בודק"}
               canEdit={canEdit}
               canDelete={canDelete}
               onEditAudit={handleEdit}
@@ -241,7 +239,7 @@ const Dashboard = () => {
         audit={currentAudit}
         onSubmit={handleFormSuccess}
         mode={formMode}
-        currentUser={currentUser}
+        currentUser={user}
       />
 
       {newlyCreatedAudit && (

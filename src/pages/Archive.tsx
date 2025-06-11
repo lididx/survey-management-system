@@ -12,7 +12,6 @@ import { useAuthManager } from "@/hooks/useAuthManager";
 import { useAuditPermissions } from "@/hooks/useAuditPermissions";
 import { isAuditInArchiveView, removeFromArchive } from "@/utils/archiveManager";
 import { getAudits, deleteAuditById, updateAuditStatusInDb } from "@/utils/supabase";
-import { getCurrentUser } from "@/utils/supabaseAuth";
 
 const ArchivePage = () => {
   console.log("[Archive] Component rendering...");
@@ -23,18 +22,17 @@ const ArchivePage = () => {
   const [audits, setAudits] = useState<Audit[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingError, setLoadingError] = useState<string | null>(null);
-  const currentUser = getCurrentUser();
   
-  console.log("[Archive] Current user:", currentUser);
+  console.log("[Archive] Current user:", user);
   
-  const { canDelete, canEdit } = useAuditPermissions(currentUser);
+  const { canDelete, canEdit } = useAuditPermissions(user);
 
   // Memoized loadAudits function to prevent recreation
   const loadAudits = useCallback(async () => {
-    console.log("[Archive] loadAudits called, currentUser:", currentUser);
+    console.log("[Archive] loadAudits called, user:", user);
     
-    if (!currentUser) {
-      console.log("[Archive] No current user, returning");
+    if (!user) {
+      console.log("[Archive] No user, returning");
       setLoading(false);
       return;
     }
@@ -45,7 +43,7 @@ const ArchivePage = () => {
       console.log("[Archive] Starting to load audits...");
       
       // Load audits from database - pass full user object
-      const allAudits = await getAudits(currentUser);
+      const allAudits = await getAudits(user);
       console.log("[Archive] Loaded audits:", allAudits.length);
       
       setAudits(allAudits);
@@ -58,7 +56,7 @@ const ArchivePage = () => {
       setLoading(false);
       console.log("[Archive] Loading completed");
     }
-  }, [currentUser]);
+  }, [user]);
 
   useEffect(() => {
     console.log("[Archive] useEffect triggered");
@@ -89,7 +87,7 @@ const ArchivePage = () => {
     console.log(`[Archive] Deleting audit ${auditId}`);
     
     try {
-      if (!currentUser) {
+      if (!user) {
         toast.error("משתמש לא מחובר");
         return;
       }
@@ -122,26 +120,26 @@ const ArchivePage = () => {
       console.error("[Archive] Error deleting audit:", error);
       toast.error("שגיאה במחיקת הסקר");
     }
-  }, [audits, currentUser, canDelete]);
+  }, [audits, user, canDelete]);
 
   // Memoized status change handler
   const handleStatusChange = useCallback(async (audit: Audit, newStatus: StatusType) => {
     console.log(`[Archive] Changing status of audit ${audit.id} to ${newStatus}`);
     
     try {
-      if (!currentUser) {
+      if (!user) {
         toast.error("נדרש להיות מחובר כדי לעדכן סטטוס");
         return;
       }
 
       // Allow managers to change status with limited options, or full access for owners
-      if (!canEdit(audit.ownerId) && currentUser.role !== "מנהלת") {
+      if (!canEdit(audit.ownerId) && user.role !== "מנהלת") {
         toast.error("אין לך הרשאה לעדכן סקר זה");
         return;
       }
 
       // For managers, limit status options
-      if (currentUser.role === "מנהלת" && !canEdit(audit.ownerId)) {
+      if (user.role === "מנהלת" && !canEdit(audit.ownerId)) {
         if (newStatus !== "הסתיים" && newStatus !== "בבקרה") {
           toast.error("מנהלים יכולים לעדכן רק לסטטוס 'הסתיים' או 'בבקרה'");
           return;
@@ -151,7 +149,7 @@ const ArchivePage = () => {
       const reason = `עדכון סטטוס ל-${newStatus} מהארכיון`;
       
       // Update status in database
-      const success = await updateAuditStatusInDb(audit.id, newStatus, reason, currentUser.name);
+      const success = await updateAuditStatusInDb(audit.id, newStatus, reason, user.name);
       
       if (success) {
         // Update local state instead of reloading
@@ -169,7 +167,7 @@ const ArchivePage = () => {
                     oldDate: null,
                     newDate: null,
                     reason,
-                    modifiedBy: currentUser.name
+                    modifiedBy: user.name
                   }, ...a.statusLog]
                 }
               : a
@@ -189,7 +187,7 @@ const ArchivePage = () => {
       console.error("[Archive] Error updating status:", error);
       toast.error("שגיאה בעדכון סטטוס הסקר");
     }
-  }, [currentUser, canEdit]);
+  }, [user, canEdit]);
 
   // Memoized navigation handlers
   const handleNavigateToArchive = useCallback(() => {
@@ -203,8 +201,8 @@ const ArchivePage = () => {
   }, [loadAudits]);
 
   // Early return for no user
-  if (!currentUser) {
-    console.log("[Archive] No current user, redirecting to login");
+  if (!user) {
+    console.log("[Archive] No user, redirecting to login");
     navigate('/');
     return null;
   }
@@ -281,7 +279,7 @@ const ArchivePage = () => {
           <CardContent>
             <AuditsTable 
               audits={displayedAudits}
-              userRole={currentUser.role}
+              userRole={user.role}
               canEdit={canEdit}
               canDelete={canDelete}
               onEditAudit={(audit) => {}}

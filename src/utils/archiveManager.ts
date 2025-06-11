@@ -7,7 +7,6 @@ import {
   deleteAuditById, 
   updateAuditStatusInDb 
 } from "./supabase";
-import { getCurrentUser } from "./supabaseAuth";
 
 // Check if audit is in archive view (helper function)
 export const isAuditInArchiveView = (audit: Audit): boolean => {
@@ -115,17 +114,18 @@ export const changeStatusInArchive = async (
   }
 };
 
-export const loadArchivedAudits = async (): Promise<Audit[]> => {
+// This function is removed as we should use the user from useAuthManager
+// instead of the deprecated getCurrentUser function
+export const loadArchivedAudits = async (user: any): Promise<Audit[]> => {
   console.log(`[loadArchivedAudits] Loading archived audits from Supabase`);
   
   try {
-    const currentUser = getCurrentUser();
-    if (!currentUser) {
-      console.error("[loadArchivedAudits] No current user");
+    if (!user) {
+      console.error("[loadArchivedAudits] No user provided");
       return [];
     }
 
-    const audits = await getAudits(currentUser);
+    const audits = await getAudits(user);
     console.log(`[loadArchivedAudits] Loaded ${audits.length} audits`);
     return audits;
   } catch (error) {
