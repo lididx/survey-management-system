@@ -91,7 +91,7 @@ export const EmailTemplatePopup = ({
         }
       }
       
-      // Determine surveyor text (male/female) - fixed for Lidor
+      // Determine surveyor text (male/female) - corrected for Lidor
       const surveyorText = surveyorGender === "female" ? "סוקרת" : "סוקר";
       
       setEmailBody(`${greeting},

@@ -158,53 +158,12 @@ export const AuditsTable = ({
   };
 
   const handleStatusChangeLocal = (audit: Audit, newStatus: StatusType) => {
-    const currentUser = getCurrentUser();
-    if (!currentUser) {
-      toast.error("נדרש להיות מחובר כדי לעדכן סטטוס");
-      return;
-    }
-
-    if (!canEdit(audit.ownerId) && currentUser.role !== "מנהלת") {
-      toast.error("אין לך הרשאה לעדכן סקר זה");
-      return;
-    }
-
-    const statusChange = {
-      id: crypto.randomUUID(),
-      timestamp: new Date(),
-      oldStatus: audit.currentStatus,
-      newStatus: newStatus,
-      oldDate: null,
-      newDate: null,
-      reason: `עדכון סטטוס ל-${newStatus}`,
-      modifiedBy: currentUser.name
-    };
-
-    const updatedAudit = {
-      ...audit,
-      currentStatus: newStatus,
-      statusLog: [statusChange, ...audit.statusLog]
-    };
-
-    // עדכון הסקר באחסון
-    const auditOwnerEmail = audit.ownerId;
-    const userAudits = getStoredAudits(auditOwnerEmail);
-    const updatedUserAudits = userAudits.map(a => a.id === audit.id ? updatedAudit : a);
+    // Call the parent handler for status change
+    onStatusChange(audit, newStatus);
     
-    if (saveAuditsToStorage(auditOwnerEmail, updatedUserAudits)) {
-      // גם לעדכן באחסון הגלובלי
-      const globalAudits = getStoredAudits(null);
-      const updatedGlobalAudits = globalAudits.map(a => a.id === audit.id ? updatedAudit : a);
-      saveAuditsToStorage(null, updatedGlobalAudits);
-      
-      toast.success(`סטטוס הסקר עודכן ל-${newStatus}`);
-      
-      // Call parent refresh without page reload
-      if (onDataChange) {
-        onDataChange();
-      }
-    } else {
-      toast.error("שגיאה בעדכון סטטוס הסקר");
+    // Call parent refresh if available
+    if (onDataChange) {
+      onDataChange();
     }
   };
   
@@ -224,7 +183,7 @@ export const AuditsTable = ({
       justifyContent: 'center'
     };
 
-    // Allow status changes in archive view
+    // Allow status changes for managers with limited options
     if (userRole === "מנהלת" && !canEdit(audit.ownerId)) {
       return (
         <Select 
@@ -236,7 +195,6 @@ export const AuditsTable = ({
               toast.error("מנהלים יכולים לעדכן רק לסטטוס 'הסתיים' או 'בבקרה'");
             }
           }}
-          disabled={!canEdit(audit.ownerId) && userRole !== "מנהלת"}
         >
           <SelectTrigger className="w-full px-2 py-1 h-auto bg-transparent border-0 hover:bg-gray-100">
             <span style={customBadgeStyle}>{status}</span>
@@ -249,11 +207,12 @@ export const AuditsTable = ({
       );
     }
     
+    // Allow full status changes for users who can edit
     return (
       <Select 
         value={status}
         onValueChange={(value: StatusType) => handleStatusChangeLocal(audit, value)}
-        disabled={!canEdit(audit.ownerId)}
+        disabled={!canEdit(audit.ownerId) && userRole !== "מנהלת"}
       >
         <SelectTrigger className="w-full px-2 py-1 h-auto bg-transparent border-0 hover:bg-gray-100">
           <span style={customBadgeStyle}>{status}</span>
