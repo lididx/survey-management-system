@@ -1,6 +1,6 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { Audit, User, StatusType } from '@/types/types';
+import { Audit, User, StatusType, ContactGender } from '@/types/types';
 import { toast } from 'sonner';
 
 console.log("[Supabase] Using live Supabase connection");
@@ -78,7 +78,7 @@ export const getAudits = async (userEmail: string, userRole: string): Promise<Au
           role: contact.role || '',
           email: contact.email || '',
           phone: contact.phone || '',
-          gender: contact.gender || 'other'
+          gender: (contact.gender as ContactGender) || 'other'
         }));
       }
 
@@ -93,8 +93,8 @@ export const getAudits = async (userEmail: string, userRole: string): Promise<Au
         audit.statusLog = statusLogData.map(log => ({
           id: log.id,
           timestamp: new Date(log.timestamp),
-          oldStatus: log.old_status,
-          newStatus: log.new_status,
+          oldStatus: (log.old_status as StatusType) || null,
+          newStatus: log.new_status as StatusType,
           oldDate: log.old_date ? new Date(log.old_date) : null,
           newDate: log.new_date ? new Date(log.new_date) : null,
           reason: log.reason || '',
@@ -435,7 +435,7 @@ export const getArchivedAudits = async (userEmail: string, userRole: string): Pr
           role: contact.role || '',
           email: contact.email || '',
           phone: contact.phone || '',
-          gender: contact.gender || 'other'
+          gender: (contact.gender as ContactGender) || 'other'
         }));
       }
 
@@ -450,8 +450,8 @@ export const getArchivedAudits = async (userEmail: string, userRole: string): Pr
         audit.statusLog = statusLogData.map(log => ({
           id: log.id,
           timestamp: new Date(log.timestamp),
-          oldStatus: log.old_status,
-          newStatus: log.new_status,
+          oldStatus: (log.old_status as StatusType) || null,
+          newStatus: log.new_status as StatusType,
           oldDate: log.old_date ? new Date(log.old_date) : null,
           newDate: log.new_date ? new Date(log.new_date) : null,
           reason: log.reason || '',

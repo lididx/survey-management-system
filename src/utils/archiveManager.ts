@@ -8,6 +8,23 @@ import {
   updateAuditStatusInDb 
 } from "./supabase";
 
+// Check if audit is in archive view (helper function)
+export const isAuditInArchiveView = (audit: Audit): boolean => {
+  // This function can be used to determine if an audit should be shown in archive view
+  // For now, we'll use a simple check based on status or archive flag
+  return audit.currentStatus === "הסתיים";
+};
+
+// Add audit to archive (alias for moveToArchive)
+export const addToArchive = async (auditId: string): Promise<boolean> => {
+  return await moveToArchive(auditId);
+};
+
+// Remove audit from archive (alias for restoreFromArchive)
+export const removeFromArchive = async (auditId: string): Promise<boolean> => {
+  return await restoreFromArchive(auditId);
+};
+
 export const moveToArchive = async (auditId: string): Promise<boolean> => {
   console.log(`[moveToArchive] Moving audit ${auditId} to archive`);
   

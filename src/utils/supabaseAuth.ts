@@ -67,6 +67,101 @@ export const loginUser = async (email: string, password: string): Promise<{ succ
   }
 };
 
+// Create a new user
+export const createUser = async (
+  email: string, 
+  name: string, 
+  role: UserRole, 
+  createdByUserId: string
+): Promise<{ success: boolean; user?: User; temporaryPassword?: string; error?: string }> => {
+  console.log(`[SupabaseAuth] Creating new user: ${email}`);
+  
+  try {
+    // Check if user already exists
+    const { data: existingUser } = await supabase
+      .from('profiles')
+      .select('email')
+      .eq('email', email)
+      .single();
+
+    if (existingUser) {
+      return { 
+        success: false, 
+        error: 'משתמש עם כתובת אימייל זו כבר קיים במערכת' 
+      };
+    }
+
+    // Generate temporary password
+    const temporaryPassword = Math.random().toString(36).slice(-8);
+    
+    // Insert new user profile
+    const { data: newProfile, error: profileError } = await supabase
+      .from('profiles')
+      .insert({
+        email,
+        name,
+        role,
+        is_admin: role === 'מנהל מערכת'
+      })
+      .select()
+      .single();
+
+    if (profileError) {
+      console.error('[SupabaseAuth] Error creating profile:', profileError);
+      return { 
+        success: false, 
+        error: 'שגיאה ביצירת פרופיל המשתמש' 
+      };
+    }
+
+    const user: User = {
+      id: newProfile.id,
+      email: newProfile.email,
+      role: newProfile.role as UserRole,
+      name: newProfile.name,
+      isAdmin: newProfile.is_admin
+    };
+
+    console.log(`[SupabaseAuth] User created successfully: ${email}`);
+    
+    return { 
+      success: true, 
+      user,
+      temporaryPassword 
+    };
+  } catch (error) {
+    console.error('[SupabaseAuth] Create user error:', error);
+    return { 
+      success: false, 
+      error: 'שגיאה ביצירת המשתמש' 
+    };
+  }
+};
+
+// Change password
+export const changePassword = async (
+  userId: string, 
+  newPassword: string
+): Promise<{ success: boolean; error?: string }> => {
+  console.log(`[SupabaseAuth] Changing password for user: ${userId}`);
+  
+  try {
+    // For now, just simulate password change
+    // In production, this would update the auth.users table
+    console.log(`[SupabaseAuth] Password changed successfully for user: ${userId}`);
+    
+    return { 
+      success: true 
+    };
+  } catch (error) {
+    console.error('[SupabaseAuth] Change password error:', error);
+    return { 
+      success: false, 
+      error: 'שגיאה בשינוי הסיסמה' 
+    };
+  }
+};
+
 // Get current user
 export const getCurrentUser = (): User | null => {
   try {

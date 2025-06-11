@@ -8,7 +8,7 @@ export type StatusType =
   | "בבקרה"
   | "הסתיים";
 
-export type ContactGender = "male" | "female";
+export type ContactGender = "male" | "female" | "other";
 
 export interface Contact {
   id?: string;
@@ -46,6 +46,7 @@ export interface Audit {
   statusLog: StatusChange[];
   ownerId: string;
   ownerName?: string;
+  isArchived?: boolean; // Added the missing property
 }
 
 export type UserRole = "בודק" | "מנהלת" | "מנהל מערכת";
