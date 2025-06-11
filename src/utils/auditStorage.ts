@@ -1,7 +1,8 @@
+
 import { Audit } from '@/types/types';
 import { toast } from 'sonner';
 
-// Sample audits as fallback data for new users
+// Sample audits as fallback data for new users - עם המיילים החדשים
 export const sampleAudits: Audit[] = [
   {
     id: "1",
@@ -56,7 +57,7 @@ export const sampleAudits: Audit[] = [
         modifiedBy: "לידור"
       }
     ],
-    ownerId: "lidor@example.com",
+    ownerId: "lidorn@citadel.com",
     ownerName: "לידור"
   },
   {
@@ -93,7 +94,7 @@ export const sampleAudits: Audit[] = [
         modifiedBy: "לידור"
       }
     ],
-    ownerId: "lidor@example.com",
+    ownerId: "lidorn@citadel.com",
     ownerName: "לידור"
   },
   {
@@ -139,17 +140,23 @@ export const sampleAudits: Audit[] = [
         modifiedBy: "מורן"
       }
     ],
-    ownerId: "moran@example.com",
+    ownerId: "moran@citadel.co.il",
     ownerName: "מורן"
   }
 ];
 
-// Global storage key for all audits - using this key for all users
+// תיקון מערכת האחסון להיות ספציפית למשתמש במקום גלובלית
+const getUserStorageKey = (userEmail: string) => {
+  return `user_audits_${userEmail}`;
+};
+
 const GLOBAL_AUDITS_KEY = 'all_audits';
 
 // Helper functions for localStorage
 export const getStorageKey = (userEmail: string | null) => {
-  // Always use the global key to ensure all users see the same data
+  if (userEmail) {
+    return getUserStorageKey(userEmail);
+  }
   return GLOBAL_AUDITS_KEY;
 };
 
@@ -222,35 +229,50 @@ const parseAuditsData = (jsonData: string): Audit[] => {
   }
 };
 
+// תיקון מערכת הטעינה - כל משתמש יראה רק את הסקרים שלו
 export const getStoredAudits = (userEmail: string | null): Audit[] => {
   try {
     console.log(`[getStoredAudits] Fetching audits for ${userEmail || 'ALL USERS'}`);
     
-    // Always use the global key
-    const storageKey = GLOBAL_AUDITS_KEY;
-    
-    // Test if localStorage is available and working
-    try {
-      localStorage.getItem("test-localstorage");
-    } catch (e) {
-      console.error("LocalStorage not available:", e);
-      toast.error("שגיאה בגישה לאחסון מקומי");
-      return [];
+    // אם יש userEmail ספציפי, טען רק את הסקרים שלו
+    if (userEmail) {
+      const userStorageKey = getUserStorageKey(userEmail);
+      const storedData = localStorage.getItem(userStorageKey);
+      
+      if (!storedData) {
+        console.log(`[getStoredAudits] No stored data found for user: ${userEmail}`);
+        // אתחול עם נתוני דוגמה רק לאותו משתמש
+        const userSampleAudits = sampleAudits.filter(audit => audit.ownerId === userEmail);
+        if (userSampleAudits.length > 0) {
+          saveAuditsToStorage(userEmail, userSampleAudits);
+          return userSampleAudits;
+        }
+        return [];
+      }
+      
+      const parsedAudits = parseAuditsData(storedData);
+      console.log(`[getStoredAudits] Retrieved ${parsedAudits.length} audits for user ${userEmail}`);
+      return parsedAudits;
     }
     
-    const storedData = localStorage.getItem(storageKey);
+    // למנהלת - טען את כל הסקרים
+    const allUsersAudits: Audit[] = [];
+    const allUsers = ['lidorn@citadel.com', 'moran@citadel.co.il'];
     
-    if (!storedData) {
-      console.log(`[getStoredAudits] No stored data found for key: ${storageKey}`);
-      // Initialize with sample data if no audits exist yet
-      saveAuditsToStorage(null, sampleAudits);
+    allUsers.forEach(user => {
+      const userAudits = getStoredAudits(user);
+      allUsersAudits.push(...userAudits);
+    });
+    
+    // אם אין סקרים, אתחל עם נתוני דוגמה
+    if (allUsersAudits.length === 0) {
+      sampleAudits.forEach(audit => {
+        saveAuditsToStorage(audit.ownerId, [audit]);
+      });
       return sampleAudits;
     }
     
-    const parsedAudits = parseAuditsData(storedData);
-    console.log(`[getStoredAudits] Retrieved ${parsedAudits.length} audits from storage`);
-    
-    return parsedAudits;
+    return allUsersAudits;
   } catch (error) {
     console.error("[getStoredAudits] Error loading audits from localStorage:", error);
     toast.error("שגיאה בטעינת נתונים");
@@ -279,9 +301,9 @@ export const saveAuditsToStorage = (userEmail: string | null, audits: Audit[]) =
       return true;
     });
     
-    // Always use the global key for consistent storage
-    const storageKey = GLOBAL_AUDITS_KEY;
-    console.log(`[saveAuditsToStorage] Saving ${filteredAudits.length} audits to storage`);
+    // שימוש ב key ספציפי למשתמש או גלובלי
+    const storageKey = getStorageKey(userEmail);
+    console.log(`[saveAuditsToStorage] Saving ${filteredAudits.length} audits to storage with key: ${storageKey}`);
     
     // Verify localStorage is working
     try {
@@ -324,8 +346,11 @@ export const saveAuditsToStorage = (userEmail: string | null, audits: Audit[]) =
   }
 };
 
-// Clear user-specific audit data - no longer needed as we use global storage
+// Clear user-specific audit data
 export const clearUserAudits = (userEmail: string | null) => {
-  // No-op function as we're now using a global storage approach
-  console.log("[clearUserAudits] Function called but no action taken - using global storage");
+  if (userEmail) {
+    const storageKey = getUserStorageKey(userEmail);
+    localStorage.removeItem(storageKey);
+    console.log(`[clearUserAudits] Cleared audits for user: ${userEmail}`);
+  }
 };

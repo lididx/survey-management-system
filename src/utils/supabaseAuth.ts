@@ -20,11 +20,11 @@ interface SupabaseUser extends User {
   lastLogin?: Date;
 }
 
-// Mock users for development when Supabase is not configured
+// Mock users for development when Supabase is not configured - עם המיילים החדשים
 const mockUsers = [
   {
     id: '1',
-    email: 'lidor@example.com',
+    email: 'lidorn@citadel.com',
     password: 'password123',
     name: 'לידור',
     role: 'בודק' as UserRole,
@@ -32,7 +32,7 @@ const mockUsers = [
   },
   {
     id: '2',
-    email: 'moran@example.com',
+    email: 'moran@citadel.co.il',
     password: 'password123',
     name: 'מורן',
     role: 'בודק' as UserRole,
@@ -40,7 +40,7 @@ const mockUsers = [
   },
   {
     id: '3',
-    email: 'chen@example.com',
+    email: 'chen@citadel.co.il',
     password: 'password123',
     name: 'חן',
     role: 'מנהלת' as UserRole,
@@ -48,7 +48,7 @@ const mockUsers = [
   },
   {
     id: '4',
-    email: 'admin@system.com',
+    email: 'Citadministrator@system.co.il',
     password: 'Aa123456!',
     name: 'מנהל מערכת',
     role: 'מנהל מערכת' as UserRole,

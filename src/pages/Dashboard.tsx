@@ -10,56 +10,180 @@ import { GroupedAuditsTable } from "@/components/dashboard/GroupedAuditsTable";
 import { StatisticsChart } from "@/components/dashboard/StatisticsChart";
 import { AuditFormModal } from "@/components/AuditFormModal";
 import { EmailTemplatePopup } from "@/components/EmailTemplatePopup";
-import { getStoredAudits } from "@/utils/auditStorage";
-import { Audit } from "@/types/types";
+import { getStoredAudits, saveAuditsToStorage } from "@/utils/auditStorage";
+import { Audit, StatusType } from "@/types/types";
 import { useAuthManager } from "@/hooks/useAuthManager";
 import { getCurrentUser } from "@/utils/supabaseAuth";
+import { useAuditPermissions } from "@/hooks/useAuditPermissions";
 import { toast } from "sonner";
 
 const Dashboard = () => {
-  const [audits, setAudits] = useState<Audit[]>(getStoredAudits(null));
+  const { user } = useAuthManager();
+  const currentUser = getCurrentUser();
+  const { canEdit, canDelete } = useAuditPermissions(currentUser);
+  
+  // טעינת סקרים לפי הרשאות המשתמש
+  const [audits, setAudits] = useState<Audit[]>(() => {
+    if (!currentUser) return [];
+    
+    // בודקים רואים רק את הסקרים שלהם
+    if (currentUser.role === "בודק") {
+      return getStoredAudits(currentUser.email);
+    }
+    
+    // מנהלת רואה את כל הסקרים
+    return getStoredAudits(null);
+  });
+  
   const [showAuditModal, setShowAuditModal] = useState(false);
   const [showStatistics, setShowStatistics] = useState(false);
   const [editingAudit, setEditingAudit] = useState<Audit | null>(null);
   const [newlyCreatedAudit, setNewlyCreatedAudit] = useState<Audit | null>(null);
   const [showEmailModal, setShowEmailModal] = useState(false);
   const navigate = useNavigate();
-  const { user } = useAuthManager();
-  const currentUser = getCurrentUser();
 
   const refreshAudits = useCallback(() => {
-    setAudits(getStoredAudits(null));
-  }, []);
+    if (!currentUser) return;
+    
+    // רענון הסקרים לפי הרשאות המשתמש
+    if (currentUser.role === "בודק") {
+      setAudits(getStoredAudits(currentUser.email));
+    } else {
+      setAudits(getStoredAudits(null));
+    }
+  }, [currentUser]);
 
   const handleFormSuccess = (createdAudit?: Partial<Audit>) => {
-    refreshAudits();
+    if (!currentUser) {
+      toast.error("משתמש לא מחובר");
+      return;
+    }
+
+    // יצירת סקר חדש
+    if (createdAudit && !editingAudit) {
+      const newAudit: Audit = {
+        ...createdAudit,
+        id: crypto.randomUUID(),
+        receivedDate: new Date(),
+        currentStatus: "התקבל",
+        statusLog: [{
+          id: crypto.randomUUID(),
+          timestamp: new Date(),
+          oldStatus: null,
+          newStatus: "התקבל",
+          oldDate: null,
+          newDate: null,
+          reason: "יצירת סקר",
+          modifiedBy: currentUser.name
+        }],
+        ownerId: currentUser.email,
+        ownerName: currentUser.name
+      } as Audit;
+
+      // שמירת הסקר החדש
+      const userAudits = getStoredAudits(currentUser.email);
+      const updatedUserAudits = [newAudit, ...userAudits];
+      
+      if (saveAuditsToStorage(currentUser.email, updatedUserAudits)) {
+        setNewlyCreatedAudit(newAudit);
+        
+        // רענון הרשימה
+        refreshAudits();
+        
+        toast.success("סקר חדש נוצר בהצלחה!", {
+          description: "לחץ על הכפתור למטה לשליחת מייל תיאום",
+          action: {
+            label: "שלח מייל תיאום",
+            onClick: () => setShowEmailModal(true),
+          },
+          duration: 8000,
+        });
+      } else {
+        toast.error("שגיאה בשמירת הסקר החדש");
+      }
+    }
+    
     setShowAuditModal(false);
     setEditingAudit(null);
-    
-    // אם נוצר סקר חדש, נציג כפתור מייל
-    if (createdAudit && 'id' in createdAudit) {
-      const fullAudit = audits.find(a => a.id === createdAudit.id) || createdAudit as Audit;
-      setNewlyCreatedAudit(fullAudit);
-      
-      // הצגת toast עם כפתור מייל
-      toast.success("סקר חדש נוצר בהצלחה!", {
-        description: "לחץ על הכפתור למטה לשליחת מייל תיאום",
-        action: {
-          label: "שלח מייל תיאום",
-          onClick: () => setShowEmailModal(true),
-        },
-        duration: 8000,
-      });
-    }
   };
 
   const handleEditAudit = (audit: Audit) => {
+    if (!canEdit(audit.ownerId)) {
+      toast.error("אין לך הרשאה לערוך סקר זה");
+      return;
+    }
+    
     setEditingAudit(audit);
     setShowAuditModal(true);
   };
 
-  const handleDeleteAudit = () => {
-    refreshAudits();
+  const handleDeleteAudit = (id: string) => {
+    if (!currentUser) {
+      toast.error("משתמש לא מחובר");
+      return;
+    }
+
+    const auditToDelete = audits.find(audit => audit.id === id);
+    if (!auditToDelete) {
+      toast.error("הסקר לא נמצא");
+      return;
+    }
+
+    if (!canDelete(auditToDelete.ownerId)) {
+      toast.error("אין לך הרשאה למחוק סקר זה");
+      return;
+    }
+
+    // מחיקת הסקר
+    const userAudits = getStoredAudits(currentUser.email);
+    const updatedUserAudits = userAudits.filter(audit => audit.id !== id);
+    
+    if (saveAuditsToStorage(currentUser.email, updatedUserAudits)) {
+      refreshAudits();
+      toast.success("סקר נמחק בהצלחה");
+    } else {
+      toast.error("שגיאה במחיקת הסקר");
+    }
+  };
+
+  const handleStatusChange = (audit: Audit, newStatus: StatusType) => {
+    if (!currentUser) {
+      toast.error("נדרש להיות מחובר כדי לעדכן סטטוס");
+      return;
+    }
+
+    if (!canEdit(audit.ownerId)) {
+      toast.error("אין לך הרשאה לעדכן סקר זה");
+      return;
+    }
+
+    const statusChange = {
+      id: crypto.randomUUID(),
+      timestamp: new Date(),
+      oldStatus: audit.currentStatus,
+      newStatus: newStatus,
+      oldDate: null,
+      newDate: null,
+      reason: `עדכון סטטוס ל-${newStatus}`,
+      modifiedBy: currentUser.name
+    };
+
+    const updatedAudit = {
+      ...audit,
+      currentStatus: newStatus,
+      statusLog: [statusChange, ...audit.statusLog]
+    };
+
+    // עדכון הסקר באחסון
+    const userAudits = getStoredAudits(currentUser.email);
+    const updatedUserAudits = userAudits.map(a => a.id === audit.id ? updatedAudit : a);
+    
+    if (saveAuditsToStorage(currentUser.email, updatedUserAudits)) {
+      refreshAudits();
+      toast.success(`סטטוס הסקר עודכן ל-${newStatus}`);
+    } else {
+      toast.error("שגיאה בעדכון סטטוס הסקר");
+    }
   };
 
   const handleNavigateToArchive = () => {
@@ -85,8 +209,18 @@ const Dashboard = () => {
     }, 100);
   };
 
+  const handleEmailClick = (audit: Audit) => {
+    setNewlyCreatedAudit(audit);
+    setShowEmailModal(true);
+  };
+
   // Check if user is Chen (manager) to show statistics
-  const isManager = currentUser?.role === "מנהלת" || currentUser?.email === "chen@example.com";
+  const isManager = currentUser?.role === "מנהלת" || currentUser?.email === "chen@citadel.co.il";
+
+  // בדיקה שהמשתמש מחובר
+  if (!currentUser) {
+    return <div>טוען...</div>;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50" dir="rtl">
@@ -158,12 +292,12 @@ const Dashboard = () => {
             <GroupedAuditsTable
               audits={audits}
               userRole={currentUser?.role || "בודק"}
-              canEdit={(auditOwnerId: string) => true}
-              canDelete={(auditOwnerId: string) => true}
+              canEdit={canEdit}
+              canDelete={canDelete}
               onEditAudit={handleEditAudit}
               onDeleteAudit={handleDeleteAudit}
-              onEmailClick={() => {}}
-              onStatusChange={() => {}}
+              onEmailClick={handleEmailClick}
+              onStatusChange={handleStatusChange}
             />
           </div>
         </div>
