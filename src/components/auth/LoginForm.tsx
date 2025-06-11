@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -8,7 +9,6 @@ import { Input } from "@/components/ui/input";
 import { Eye, EyeOff, Mail, LogIn } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
-import { Badge } from "@/components/ui/badge";
 import { loginUser } from "@/utils/supabaseAuth";
 import PasswordChangeForm from "./PasswordChangeForm";
 
@@ -55,12 +55,6 @@ const LoginForm = () => {
           description: `ברוך הבא ${user.name}! מועבר לדף הבית...`,
         });
         
-        // Trigger storage event to update app state
-        window.dispatchEvent(new StorageEvent('storage', {
-          key: 'current_user',
-          newValue: localStorage.getItem('current_user')
-        }));
-        
         setTimeout(() => {
           console.log("Redirecting to dashboard after successful login");
           navigate("/dashboard", { replace: true });
@@ -95,31 +89,13 @@ const LoginForm = () => {
 
   return (
     <>
-      <div className="mb-4 flex flex-wrap gap-2 justify-center">
-        <Badge variant="outline" className="p-2 cursor-pointer" onClick={() => {
-          form.setValue("email", "lidorn@citadel.co.il");
-          form.setValue("password", "password123");
-        }}>
-          לידור (בודק)
-        </Badge>
-        <Badge variant="outline" className="p-2 cursor-pointer" onClick={() => {
-          form.setValue("email", "moran@citadel.co.il");
-          form.setValue("password", "password123");
-        }}>
-          מורן (בודק)
-        </Badge>
-        <Badge variant="outline" className="p-2 cursor-pointer" onClick={() => {
-          form.setValue("email", "chen@citadel.co.il");
-          form.setValue("password", "password123");
-        }}>
-          חן (מנהלת)
-        </Badge>
-        <Badge variant="outline" className="p-2 cursor-pointer bg-blue-50" onClick={() => {
-          form.setValue("email", "Citadministrator@system.co.il");
-          form.setValue("password", "Aa123456!");
-        }}>
-          מנהל מערכת
-        </Badge>
+      <div className="mb-6 text-center">
+        <p className="text-sm text-gray-600 mb-4">
+          השתמש באימייל וסיסמה שלך ב-Supabase
+        </p>
+        <p className="text-xs text-gray-500">
+          אם אין לך חשבון, פנה למנהל המערכת
+        </p>
       </div>
 
       <Form {...form}>

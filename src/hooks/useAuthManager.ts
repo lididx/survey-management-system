@@ -3,77 +3,104 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User } from '@/types/types';
 import { toast } from 'sonner';
-import { getCurrentUser, logoutUser } from '@/utils/supabaseAuth';
+import { supabase } from '@/integrations/supabase/client';
+import { logoutUser } from '@/utils/supabaseAuth';
+import type { Session } from '@supabase/supabase-js';
 
 export const useAuthManager = () => {
   const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
-  // Memoized check auth function to prevent recreation
-  const checkAuthStatus = useCallback(async () => {
+  // Function to get user profile from session
+  const getUserProfile = useCallback(async (authUser: any): Promise<User | null> => {
     try {
-      console.log("[useAuthManager] Checking for logged in user");
-      
-      // Check for current user
-      const currentUser = getCurrentUser();
-      console.log("[useAuthManager] User check result:", currentUser);
-      
-      if (currentUser) {
-        console.log(`[useAuthManager] User logged in: ${currentUser.email}`);
-        setUser(currentUser);
-        return;
+      const { data: profileData, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', authUser.id)
+        .single();
+
+      if (error || !profileData) {
+        console.error('[useAuthManager] Profile not found:', error);
+        return null;
       }
-      
-      console.log("[useAuthManager] No user data found");
+
+      return {
+        id: authUser.id,
+        email: profileData.email,
+        role: profileData.role,
+        name: profileData.name,
+        isAdmin: profileData.is_admin,
+        lastLogin: new Date()
+      };
+    } catch (error) {
+      console.error('[useAuthManager] Error getting user profile:', error);
+      return null;
+    }
+  }, []);
+
+  // Handle auth state changes
+  const handleAuthStateChange = useCallback(async (event: string, session: Session | null) => {
+    console.log('[useAuthManager] Auth state changed:', event, session?.user?.email);
+    
+    setSession(session);
+    
+    if (session?.user) {
+      // User is logged in, get their profile
+      setTimeout(async () => {
+        const userProfile = await getUserProfile(session.user);
+        if (userProfile) {
+          setUser(userProfile);
+          console.log(`[useAuthManager] User profile loaded: ${userProfile.email}`);
+        } else {
+          console.log('[useAuthManager] Could not load user profile');
+          setUser(null);
+          toast.error('שגיאה בטעינת פרטי המשתמש');
+        }
+        setIsLoading(false);
+      }, 0);
+    } else {
+      // User is logged out
       setUser(null);
+      setIsLoading(false);
       
       // Only navigate to login if we're not already on the login page
       if (window.location.pathname !== '/') {
-        console.log("[useAuthManager] Navigating to login page");
+        console.log("[useAuthManager] User logged out, navigating to login page");
         navigate("/", { replace: true });
       }
-    } catch (error) {
-      console.error("[useAuthManager] Error while checking authentication:", error);
-      setUser(null);
-      toast.error("שגיאה באימות המשתמש");
-      
-      if (window.location.pathname !== '/') {
-        navigate("/", { replace: true });
-      }
-    } finally {
-      setIsLoading(false);
     }
-  }, [navigate]);
+  }, [getUserProfile, navigate]);
 
   useEffect(() => {
-    checkAuthStatus();
+    console.log("[useAuthManager] Setting up auth state listener");
     
-    // Listen for storage changes to sync auth state across tabs
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'current_user') {
-        console.log("[useAuthManager] Storage change detected for current_user");
-        checkAuthStatus();
-      }
-    };
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(handleAuthStateChange);
+    
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log("[useAuthManager] Initial session check:", session?.user?.email);
+      handleAuthStateChange('INITIAL_SESSION', session);
+    });
 
-    window.addEventListener('storage', handleStorageChange);
-    
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
+      console.log("[useAuthManager] Cleaning up auth listener");
+      subscription.unsubscribe();
     };
-  }, [checkAuthStatus]);
+  }, [handleAuthStateChange]);
 
   const handleLogout = useCallback(async () => {
     try {
       console.log(`[useAuthManager] Logging out user: ${user?.email}`);
       
-      // Logout from the system
-      logoutUser();
+      await logoutUser();
       setUser(null);
+      setSession(null);
       toast.success("התנתקת בהצלחה");
       
-      // Navigate to login page
       console.log("[useAuthManager] Navigating to login page after logout");
       navigate("/", { replace: true });
     } catch (error) {
@@ -85,14 +112,17 @@ export const useAuthManager = () => {
   }, [user?.email, navigate]);
 
   // Method to manually refresh user data
-  const refreshUser = useCallback(() => {
-    const currentUser = getCurrentUser();
-    console.log("[useAuthManager] Refreshing user data:", currentUser);
-    setUser(currentUser);
-  }, []);
+  const refreshUser = useCallback(async () => {
+    if (session?.user) {
+      const userProfile = await getUserProfile(session.user);
+      console.log("[useAuthManager] Refreshing user data:", userProfile);
+      setUser(userProfile);
+    }
+  }, [session, getUserProfile]);
 
   return { 
     user, 
+    session,
     isLoading, 
     handleLogout,
     refreshUser 

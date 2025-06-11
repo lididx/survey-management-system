@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Audit, User, StatusType, ContactGender } from '@/types/types';
 import { toast } from 'sonner';
 
-console.log("[Supabase] Using live Supabase connection");
+console.log("[Supabase] Using live Supabase connection with auth");
 
 // Check if Supabase is properly configured - always return true now
 export const isSupabaseConfigured = () => {
@@ -23,29 +23,22 @@ const transformDbAuditToAppAudit = (dbAudit: any): Audit => {
     scheduledDate: dbAudit.scheduled_date ? new Date(dbAudit.scheduled_date) : null,
     currentStatus: dbAudit.current_status,
     statusLog: [], // Will be loaded separately
-    ownerId: dbAudit.owner_id,
+    ownerId: dbAudit.owner_id, // Keep for backward compatibility
     ownerName: dbAudit.owner_name,
     isArchived: dbAudit.is_archived || false
   };
 };
 
 // Get all audits with contacts and status log
-export const getAudits = async (userEmail: string, userRole: string): Promise<Audit[]> => {
-  console.log(`[getAudits] Getting audits for ${userEmail} with role ${userRole}`);
+export const getAudits = async (currentUser: User): Promise<Audit[]> => {
+  console.log(`[getAudits] Getting audits for ${currentUser.email} with role ${currentUser.role}`);
   
   try {
-    // Get audits based on user role
-    let auditsQuery = supabase
+    // Get audits based on user role - RLS will handle the filtering
+    const { data: auditsData, error: auditsError } = await supabase
       .from('audits')
       .select('*')
-      .eq('is_archived', false);
-
-    // If user is not manager, filter by owner
-    if (userRole === "בודק") {
-      auditsQuery = auditsQuery.eq('owner_id', userEmail);
-    }
-
-    const { data: auditsData, error: auditsError } = await auditsQuery
+      .eq('is_archived', false)
       .order('received_date', { ascending: false });
 
     if (auditsError) {
@@ -115,8 +108,8 @@ export const getAudits = async (userEmail: string, userRole: string): Promise<Au
 };
 
 // Create a new audit
-export const createNewAudit = async (auditData: Partial<Audit>, userEmail: string, userName: string): Promise<Audit> => {
-  console.log("[createNewAudit] Creating new audit for user:", userEmail);
+export const createNewAudit = async (auditData: Partial<Audit>, currentUser: User): Promise<Audit> => {
+  console.log("[createNewAudit] Creating new audit for user:", currentUser.email);
 
   try {
     const newAuditId = crypto.randomUUID();
@@ -133,8 +126,9 @@ export const createNewAudit = async (auditData: Partial<Audit>, userEmail: strin
         planned_meeting_date: auditData.plannedMeetingDate?.toISOString() || null,
         scheduled_date: auditData.scheduledDate?.toISOString() || null,
         current_status: 'התקבל',
-        owner_id: userEmail,
-        owner_name: userName,
+        owner_id: currentUser.email, // Keep for backward compatibility
+        owner_name: currentUser.name,
+        user_id: currentUser.id, // New auth-based field
         is_archived: false
       })
       .select()
@@ -155,7 +149,7 @@ export const createNewAudit = async (auditData: Partial<Audit>, userEmail: strin
         old_status: null,
         new_status: 'התקבל',
         reason: 'יצירת סקר',
-        modified_by: userName
+        modified_by: currentUser.name
       });
 
     if (statusLogError) {
@@ -195,7 +189,7 @@ export const createNewAudit = async (auditData: Partial<Audit>, userEmail: strin
       oldDate: null,
       newDate: null,
       reason: 'יצירת סקר',
-      modifiedBy: userName
+      modifiedBy: currentUser.name
     }];
     
     return newAudit;
@@ -390,21 +384,15 @@ export const updateAuditArchiveStatus = async (auditId: string, isArchived: bool
 };
 
 // Get archived audits
-export const getArchivedAudits = async (userEmail: string, userRole: string): Promise<Audit[]> => {
-  console.log(`[getArchivedAudits] Getting archived audits for ${userEmail} with role ${userRole}`);
+export const getArchivedAudits = async (currentUser: User): Promise<Audit[]> => {
+  console.log(`[getArchivedAudits] Getting archived audits for ${currentUser.email} with role ${currentUser.role}`);
   
   try {
-    let auditsQuery = supabase
+    // Get archived audits - RLS will handle the filtering
+    const { data: auditsData, error: auditsError } = await supabase
       .from('audits')
       .select('*')
-      .eq('is_archived', true);
-
-    // If user is not manager, filter by owner
-    if (userRole === "בודק") {
-      auditsQuery = auditsQuery.eq('owner_id', userEmail);
-    }
-
-    const { data: auditsData, error: auditsError } = await auditsQuery
+      .eq('is_archived', true)
       .order('received_date', { ascending: false });
 
     if (auditsError) {

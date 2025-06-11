@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { Audit, User, StatusType } from '@/types/types';
 import { toast } from 'sonner';
@@ -31,7 +30,7 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
     try {
       setLoading(true);
       
-      const supabaseAudits = await getAudits(user.email, user.role);
+      const supabaseAudits = await getAudits(user);
       console.log(`[useAuditManager] Loaded ${supabaseAudits.length} audits from Supabase`);
       
       setAudits(supabaseAudits);
@@ -42,25 +41,14 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
     } finally {
       setLoading(false);
     }
-  }, [user?.email, user?.role]); // Only depend on user email and role
+  }, [user?.id, user?.role]); // Depend on user id and role
   
   useEffect(() => {
     loadAudits();
   }, [loadAudits]);
 
-  // Filter audits based on user role - memoized to prevent recalculation
-  const filteredAudits = useState(() => {
-    if (!user) return [];
-    
-    return user.role === "מנהלת" || user.role === "מנהל מערכת" || user.isAdmin
-      ? audits // Managers see ALL audits
-      : audits.filter(audit => audit.ownerId === user.email); // Auditors see only their audits
-  })[0];
-
-  // Update filtered audits when audits or user changes
-  useEffect(() => {
-    // This effect is intentionally minimal to avoid loops
-  }, [audits, user]);
+  // Filter audits based on user role - RLS handles this but we keep for UI consistency
+  const filteredAudits = audits; // RLS already filters at DB level
 
   const handleCreateAudit = useCallback(() => {
     setFormMode("create");
@@ -162,7 +150,7 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
     
     try {
       if (formMode === "create") {
-        const newAudit = await createNewAudit(auditData, user.email, user.name);
+        const newAudit = await createNewAudit(auditData, user);
         
         // Update local state instead of reloading to prevent loops
         setAudits(prevAudits => [newAudit, ...prevAudits]);
@@ -216,16 +204,9 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
     }
   }, [user]);
 
-  // Calculate filtered audits properly
-  const actualFilteredAudits = user ? (
-    user.role === "מנהלת" || user.role === "מנהל מערכת" || user.isAdmin
-      ? audits // Managers see ALL audits
-      : audits.filter(audit => audit.ownerId === user.email) // Auditors see only their audits
-  ) : [];
-
   return {
     audits,
-    filteredAudits: actualFilteredAudits,
+    filteredAudits,
     currentAudit,
     newlyCreatedAudit,
     formMode,

@@ -3,46 +3,50 @@ import { supabase } from '@/integrations/supabase/client';
 import { User, UserRole } from '@/types/types';
 import { toast } from 'sonner';
 
-const CURRENT_USER_KEY = 'current_user';
-
 // Login user with Supabase Auth
 export const loginUser = async (email: string, password: string): Promise<{ success: boolean; user?: User; error?: string }> => {
   console.log(`[SupabaseAuth] Login attempt for email: ${email}`);
   
   try {
-    // First check if user exists in profiles table
-    const { data: profileData, error: profileError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('email', email)
-      .single();
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
-    if (profileError || !profileData) {
-      console.log('[SupabaseAuth] User not found in profiles table');
+    if (error) {
+      console.log('[SupabaseAuth] Login error:', error.message);
       return { 
         success: false, 
-        error: 'שגיאה בהתחברות - משתמש לא נמצא' 
+        error: error.message === 'Invalid login credentials' ? 
+          'שגיאה בהתחברות - אימייל או סיסמה אינם נכונים' : 
+          'שגיאה בהתחברות למערכת'
       };
     }
 
-    // For now, use simple password validation (in production, use proper auth)
-    const expectedPasswords: { [key: string]: string } = {
-      'lidorn@citadel.co.il': 'password123',
-      'moran@citadel.co.il': 'password123',
-      'chen@citadel.co.il': 'password123',
-      'Citadministrator@system.co.il': 'Aa123456!'
-    };
-
-    if (expectedPasswords[email] !== password) {
-      console.log('[SupabaseAuth] Invalid password');
+    if (!data.user) {
       return { 
         success: false, 
-        error: 'שגיאה בהתחברות - סיסמה שגויה' 
+        error: 'שגיאה בהתחברות למערכת' 
+      };
+    }
+
+    // Get user profile from profiles table
+    const { data: profileData, error: profileError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('user_id', data.user.id)
+      .single();
+
+    if (profileError || !profileData) {
+      console.log('[SupabaseAuth] Profile not found:', profileError);
+      return { 
+        success: false, 
+        error: 'פרופיל המשתמש לא נמצא במערכת' 
       };
     }
 
     const user: User = {
-      id: profileData.id,
+      id: data.user.id,
       email: profileData.email,
       role: profileData.role as UserRole,
       name: profileData.name,
@@ -50,8 +54,6 @@ export const loginUser = async (email: string, password: string): Promise<{ succ
       lastLogin: new Date()
     };
 
-    // Store current user in session
-    localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
     console.log(`[SupabaseAuth] User logged in successfully: ${email}`, user);
     
     return { 
@@ -77,49 +79,46 @@ export const createUser = async (
   console.log(`[SupabaseAuth] Creating new user: ${email}`);
   
   try {
-    // Check if user already exists
-    const { data: existingUser } = await supabase
-      .from('profiles')
-      .select('email')
-      .eq('email', email)
-      .single();
+    // Generate temporary password
+    const temporaryPassword = Math.random().toString(36).slice(-8) + 'Aa1!';
+    
+    // Create user in Supabase Auth
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password: temporaryPassword,
+      options: {
+        data: {
+          name,
+          role,
+          is_admin: role === 'מנהל מערכת'
+        },
+        emailRedirectTo: `${window.location.origin}/`
+      }
+    });
 
-    if (existingUser) {
+    if (error) {
+      console.error('[SupabaseAuth] Error creating user:', error);
       return { 
         success: false, 
-        error: 'משתמש עם כתובת אימייל זו כבר קיים במערכת' 
+        error: error.message.includes('already registered') ? 
+          'משתמש עם כתובת אימייל זו כבר קיים במערכת' : 
+          'שגיאה ביצירת המשתמש'
       };
     }
 
-    // Generate temporary password
-    const temporaryPassword = Math.random().toString(36).slice(-8);
-    
-    // Insert new user profile
-    const { data: newProfile, error: profileError } = await supabase
-      .from('profiles')
-      .insert({
-        email,
-        name,
-        role,
-        is_admin: role === 'מנהל מערכת'
-      })
-      .select()
-      .single();
-
-    if (profileError) {
-      console.error('[SupabaseAuth] Error creating profile:', profileError);
+    if (!data.user) {
       return { 
         success: false, 
-        error: 'שגיאה ביצירת פרופיל המשתמש' 
+        error: 'שגיאה ביצירת המשתמש' 
       };
     }
 
     const user: User = {
-      id: newProfile.id,
-      email: newProfile.email,
-      role: newProfile.role as UserRole,
-      name: newProfile.name,
-      isAdmin: newProfile.is_admin
+      id: data.user.id,
+      email,
+      role,
+      name,
+      isAdmin: role === 'מנהל מערכת'
     };
 
     console.log(`[SupabaseAuth] User created successfully: ${email}`);
@@ -140,15 +139,24 @@ export const createUser = async (
 
 // Change password
 export const changePassword = async (
-  userId: string, 
   newPassword: string
 ): Promise<{ success: boolean; error?: string }> => {
-  console.log(`[SupabaseAuth] Changing password for user: ${userId}`);
+  console.log(`[SupabaseAuth] Changing password for current user`);
   
   try {
-    // For now, just simulate password change
-    // In production, this would update the auth.users table
-    console.log(`[SupabaseAuth] Password changed successfully for user: ${userId}`);
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword
+    });
+
+    if (error) {
+      console.error('[SupabaseAuth] Change password error:', error);
+      return { 
+        success: false, 
+        error: 'שגיאה בשינוי הסיסמה' 
+      };
+    }
+
+    console.log(`[SupabaseAuth] Password changed successfully`);
     
     return { 
       success: true 
@@ -164,21 +172,17 @@ export const changePassword = async (
 
 // Get current user
 export const getCurrentUser = (): User | null => {
-  try {
-    const userJson = localStorage.getItem(CURRENT_USER_KEY);
-    const user = userJson ? JSON.parse(userJson) : null;
-    console.log("[SupabaseAuth] getCurrentUser result:", user);
-    return user;
-  } catch (error) {
-    console.error("[SupabaseAuth] Error getting current user:", error);
-    return null;
-  }
+  // This will be replaced by the session-based approach in useAuthManager
+  return null;
 };
 
 // Logout user
-export const logoutUser = (): void => {
+export const logoutUser = async (): Promise<void> => {
   console.log("[SupabaseAuth] Logging out user");
-  localStorage.removeItem(CURRENT_USER_KEY);
+  const { error } = await supabase.auth.signOut();
+  if (error) {
+    console.error("[SupabaseAuth] Logout error:", error);
+  }
 };
 
 // Get all users (admin only)
@@ -195,7 +199,7 @@ export const getUsers = async (): Promise<User[]> => {
     }
 
     return data.map(profile => ({
-      id: profile.id,
+      id: profile.user_id || profile.id,
       email: profile.email,
       name: profile.name,
       role: profile.role as UserRole,

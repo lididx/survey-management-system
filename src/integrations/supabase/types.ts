@@ -24,6 +24,7 @@ export type Database = {
           received_date: string
           scheduled_date: string | null
           updated_at: string | null
+          user_id: string | null
         }
         Insert: {
           client_name?: string | null
@@ -39,6 +40,7 @@ export type Database = {
           received_date?: string
           scheduled_date?: string | null
           updated_at?: string | null
+          user_id?: string | null
         }
         Update: {
           client_name?: string | null
@@ -54,6 +56,7 @@ export type Database = {
           received_date?: string
           scheduled_date?: string | null
           updated_at?: string | null
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -183,7 +186,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_role: {
+        Args: { user_id: string }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never
