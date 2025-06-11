@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -206,7 +205,6 @@ const AdminDashboard = () => {
       <DashboardHeader
         onNavigateToArchive={() => navigate("/archive")}
         onNavigateToAdmin={() => {}}
-        onNotificationClick={() => {}}
       />
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -365,3 +363,5 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
+
+</edits_to_apply>

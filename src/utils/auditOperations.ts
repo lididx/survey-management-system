@@ -4,7 +4,6 @@ import {
   saveAuditsToStorage, 
   getStoredAudits 
 } from './auditStorage';
-import { checkForStalledAudits, sendNotificationEmail } from './notificationUtils';
 
 // Debug helper function
 const debugStorage = (message: string, data?: any) => {
@@ -137,28 +136,6 @@ export const editAudit = (
   
   const updatedAudit = updatedAudits.find(audit => audit.id === currentAudit.id) || null;
   
-  // Notification logic for status changes
-  if (updatedAudit && auditData.currentStatus === "בבקרה" && currentAudit.currentStatus !== "בבקרה") {
-    sendNotificationEmail(
-      "chen@example.com",
-      `סקר חדש לבקרה: ${updatedAudit.name}`,
-      `שלום חן,
-      
-הסקר "${updatedAudit.name}" עבור הלקוח "${updatedAudit.clientName}" עבר לסטטוס בקרה ומחכה לבדיקתך.
-
-לצפייה בפרטי הסקר, אנא היכנס/י למערכת.
-
-בברכה,
-מערכת ניהול סקרי אבטחת מידע`
-    );
-    
-    toast.info("נשלחה התראה למנהלת על סקר לבקרה", {
-      description: `סקר "${auditData.name}" עבר לסטטוס בקרה`
-    });
-  }
-  
-  checkForStalledAudits(updatedAudits);
-  
   return { updatedAudits, updatedAudit };
 };
 
@@ -240,24 +217,6 @@ export const updateAuditStatus = (
   }
   
   toast.success(`סטטוס הסקר עודכן ל-${newStatus}`);
-  
-  // Notify manager if status changed to "בבקרה"
-  if (newStatus === "בבקרה" && auditToUpdate.currentStatus !== "בבקרה") {
-    sendNotificationEmail(
-      "chen@example.com",
-      `סקר חדש לבקרה: ${auditToUpdate.name}`,
-      `שלום חן,
-      
-הסקר "${auditToUpdate.name}" עבור הלקוח "${auditToUpdate.clientName}" עבר לסטטוס בקרה ומחכה לבדיקתך.
-
-לצפייה בפרטי הסקר, אנא היכנס/י למערכת.
-
-בברכה,
-מערכת ניהול סקרי אבטחת מידע`
-    );
-    
-    toast.info("נשלחה התראה למנהלת על סקר לבקרה");
-  }
   
   return updatedAudits;
 };
