@@ -5,7 +5,7 @@ import { Archive, ArchiveRestore } from "lucide-react";
 import { toast } from "sonner";
 import { Audit, StatusType } from "@/types/types";
 import { addToArchive, removeFromArchive } from "@/utils/archiveManager";
-import { updateExistingAudit } from "@/utils/supabase";
+import { updateAuditStatusInDb } from "@/utils/supabase";
 import { getCurrentUser } from "@/utils/supabaseAuth";
 
 interface ArchiveActionsProps {
@@ -45,33 +45,25 @@ export const ArchiveActions = ({ audit, isArchive, canEdit, onDataChange }: Arch
     }
     
     try {
+      const currentUser = getCurrentUser();
+      if (!currentUser) {
+        toast.error("משתמש לא מחובר");
+        return;
+      }
+
+      // Remove from archive first
       const archiveRemoved = removeFromArchive(audit.id);
       
+      // If status is "הסתיים", change it to "בבקרה"
       let statusUpdated = true;
       if (audit.currentStatus === "הסתיים") {
-        const currentUser = getCurrentUser();
-        if (currentUser) {
-          const updatedAudit = {
-            ...audit,
-            currentStatus: "בבקרה" as StatusType,
-            statusLog: [{
-              id: crypto.randomUUID(),
-              timestamp: new Date(),
-              oldStatus: audit.currentStatus,
-              newStatus: "בבקרה" as StatusType,
-              oldDate: null,
-              newDate: null,
-              reason: "החזרה מהארכיון",
-              modifiedBy: currentUser.name
-            }, ...audit.statusLog]
-          };
-          
-          await updateExistingAudit(audit.id, updatedAudit, currentUser.name);
-        }
+        const reason = "החזרה מהארכיון";
+        statusUpdated = await updateAuditStatusInDb(audit.id, "בבקרה" as StatusType, reason, currentUser.name);
       }
       
       if (archiveRemoved && statusUpdated) {
         toast.success("הסקר הוחזר לרשימת הסקרים הפעילים");
+        // Call onDataChange to refresh the data
         if (onDataChange) {
           onDataChange();
         }

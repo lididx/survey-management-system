@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Table, TableBody, TableRow, TableCell } from "@/components/ui/table";
 import { UserCircle } from "lucide-react";
 import { Audit, StatusType } from "@/types/types";
@@ -37,27 +37,28 @@ export const AuditsTable = ({
   const [expandedAuditId, setExpandedAuditId] = useState<string | null>(null);
 
   const handleExpandLog = (auditId: string) => {
-    if (expandedAuditId === auditId) {
-      setExpandedAuditId(null);
-    } else {
-      setExpandedAuditId(auditId);
-    }
+    setExpandedAuditId(expandedAuditId === auditId ? null : auditId);
   };
 
-  const formatDate = (date: Date | null) => {
-    if (!date) return "";
-    return new Date(date).toLocaleDateString("he-IL");
-  };
+  // Memoize date formatting to avoid recalculation
+  const formatDate = useMemo(() => {
+    return (date: Date | null) => {
+      if (!date) return "";
+      return new Date(date).toLocaleDateString("he-IL");
+    };
+  }, []);
 
-  const getDisplayDate = (audit: Audit) => {
-    if (audit.scheduledDate) {
-      return formatDate(audit.scheduledDate);
-    }
-    if (audit.plannedMeetingDate) {
-      return formatDate(audit.plannedMeetingDate);
-    }
-    return "לא נקבע";
-  };
+  const getDisplayDate = useMemo(() => {
+    return (audit: Audit) => {
+      if (audit.scheduledDate) {
+        return formatDate(audit.scheduledDate);
+      }
+      if (audit.plannedMeetingDate) {
+        return formatDate(audit.plannedMeetingDate);
+      }
+      return "לא נקבע";
+    };
+  }, [formatDate]);
 
   return (
     <div className="overflow-x-auto" dir="rtl">

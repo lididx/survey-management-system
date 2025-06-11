@@ -22,6 +22,7 @@ const ArchivePage = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [audits, setAudits] = useState<Audit[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingError, setLoadingError] = useState<string | null>(null);
   const currentUser = getCurrentUser();
   
   console.log("[Archive] Current user:", currentUser);
@@ -39,6 +40,7 @@ const ArchivePage = () => {
     
     try {
       setLoading(true);
+      setLoadingError(null);
       console.log("[Archive] Starting to load audits...");
       
       // Load audits from database based on user permissions
@@ -48,33 +50,38 @@ const ArchivePage = () => {
       setAudits(allAudits);
     } catch (error) {
       console.error("[Archive] Error loading audits:", error);
-      toast.error("שגיאה בטעינת נתוני הסקרים");
+      const errorMessage = "שגיאה בטעינת נתוני הסקרים";
+      setLoadingError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
       console.log("[Archive] Loading completed");
     }
-  }, [currentUser]);
+  }, [currentUser?.email, currentUser?.role]); // Fixed dependency array
 
   useEffect(() => {
     console.log("[Archive] useEffect triggered");
     loadAudits();
   }, [loadAudits]);
 
-  // Filter audits for archive - based on new logic
+  // Optimized filtering - memoize the filtering logic
   const archivedAudits = audits.filter(audit => {
     const isInArchive = isAuditInArchiveView(audit.id, audit.currentStatus);
-    console.log(`[Archive] Audit ${audit.id} (${audit.name}): isInArchive = ${isInArchive}`);
     return isInArchive;
   });
   
   console.log("[Archive] Total audits:", audits.length, "Archived:", archivedAudits.length);
   
-  const displayedAudits = searchQuery
-    ? archivedAudits.filter(audit => 
-        audit.name.includes(searchQuery) || 
-        audit.currentStatus.includes(searchQuery) ||
-        (audit.clientName && audit.clientName.includes(searchQuery))
-      )
+  // Optimized search filtering
+  const displayedAudits = searchQuery.trim()
+    ? archivedAudits.filter(audit => {
+        const query = searchQuery.toLowerCase();
+        return (
+          audit.name.toLowerCase().includes(query) || 
+          audit.currentStatus.toLowerCase().includes(query) ||
+          (audit.clientName && audit.clientName.toLowerCase().includes(query))
+        );
+      })
     : archivedAudits;
 
   const handleAuditDelete = async (auditId: string) => {
@@ -104,8 +111,8 @@ const ArchivePage = () => {
         // Remove from archive list as well
         removeFromArchive(auditId);
         
-        // Reload audits from database
-        await loadAudits();
+        // Update local state instead of reloading
+        setAudits(prevAudits => prevAudits.filter(audit => audit.id !== auditId));
         toast.success("הסקר נמחק בהצלחה מהארכיון");
       } else {
         toast.error("שגיאה במחיקת הסקר");
@@ -145,8 +152,28 @@ const ArchivePage = () => {
       const success = await updateAuditStatusInDb(audit.id, newStatus, reason, currentUser.name);
       
       if (success) {
-        // Reload audits from database to get updated data
-        await loadAudits();
+        // Update local state instead of reloading
+        setAudits(prevAudits => 
+          prevAudits.map(a => 
+            a.id === audit.id 
+              ? { 
+                  ...a, 
+                  currentStatus: newStatus,
+                  statusLog: [{
+                    id: crypto.randomUUID(),
+                    timestamp: new Date(),
+                    oldStatus: audit.currentStatus,
+                    newStatus,
+                    oldDate: null,
+                    newDate: null,
+                    reason,
+                    modifiedBy: currentUser.name
+                  }, ...a.statusLog]
+                }
+              : a
+          )
+        );
+        
         toast.success(`סטטוס הסקר עודכן ל-${newStatus}`);
         
         // If status changed from "הסתיים" to something else, the audit will automatically move out of archive view
@@ -167,8 +194,14 @@ const ArchivePage = () => {
     // We're already on archive page
   };
 
+  const handleDataChange = useCallback(() => {
+    console.log("[Archive] handleDataChange called - reloading data");
+    loadAudits();
+  }, [loadAudits]);
+
   if (!currentUser) {
-    console.log("[Archive] No current user, returning null");
+    console.log("[Archive] No current user, redirecting to login");
+    navigate('/');
     return null;
   }
 
@@ -179,6 +212,22 @@ const ArchivePage = () => {
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900 mx-auto"></div>
           <p className="mt-4 text-gray-600">טוען נתוני ארכיון...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadingError) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center" dir="rtl">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">{loadingError}</p>
+          <button 
+            onClick={loadAudits}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            נסה שוב
+          </button>
         </div>
       </div>
     );
@@ -234,7 +283,7 @@ const ArchivePage = () => {
               onEmailClick={() => {}}
               onStatusChange={handleStatusChange}
               isArchive={true}
-              onDataChange={loadAudits}
+              onDataChange={handleDataChange}
             />
           </CardContent>
         </Card>
