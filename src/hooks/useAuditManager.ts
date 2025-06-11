@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Audit, User, StatusType } from '@/types/types';
 import { toast } from 'sonner';
@@ -12,12 +11,11 @@ import {
 } from '@/utils/supabase';
 import {
   getStoredAudits,
-  saveAuditsToStorage,
-  sampleAudits
+  saveAuditsToStorage
 } from '@/utils/auditStorage';
 
 export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
-  const [audits, setAudits] = useState<Audit[]>(initialAudits);
+  const [audits, setAudits] = useState<Audit[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentAudit, setCurrentAudit] = useState<Audit | null>(null);
   const [newlyCreatedAudit, setNewlyCreatedAudit] = useState<Audit | null>(null);
@@ -25,8 +23,8 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
   
   useEffect(() => {
     if (!user) {
-      console.log("[useAuditManager] No user, returning initial audits");
-      setAudits(initialAudits);
+      console.log("[useAuditManager] No user, setting empty audits");
+      setAudits([]);
       setLoading(false);
       return;
     }
@@ -40,15 +38,10 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
         if (!isSupabaseConfigured()) {
           console.log("[useAuditManager] Supabase is not configured, using localStorage data");
           
+          // NO SAMPLE AUDITS - only load existing stored audits
           const storedAudits = getStoredAudits(null);
-          
-          if (storedAudits.length > 0) {
-            setAudits(storedAudits);
-          } else {
-            saveAuditsToStorage(null, sampleAudits);
-            setAudits(sampleAudits);
-          }
-          
+          console.log(`[useAuditManager] Loaded ${storedAudits.length} stored audits from localStorage`);
+          setAudits(storedAudits);
           setLoading(false);
           return;
         }
@@ -61,20 +54,22 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
         console.error("[useAuditManager] Error loading audits:", error);
         toast.error("שגיאה בטעינת נתוני הסקרים");
         
+        // Only load existing stored audits, NO SAMPLE DATA
         const storedAudits = getStoredAudits(null);
-        setAudits(storedAudits.length > 0 ? storedAudits : sampleAudits);
+        setAudits(storedAudits);
       } finally {
         setLoading(false);
       }
     };
     
     loadAudits();
-  }, [user, initialAudits]);
+  }, [user]);
 
+  // Fix the filtering logic - managers should see ALL audits
   const filteredAudits = user ? (
-    user.role === "מנהלת" 
-      ? audits
-      : audits.filter(audit => audit.ownerId === user.email)
+    user.role === "מנהלת" || user.role === "מנהל מערכת" || user.isAdmin
+      ? audits // Managers see ALL audits
+      : audits.filter(audit => audit.ownerId === user.email) // Auditors see only their audits
   ) : [];
 
   const handleCreateAudit = () => {
@@ -106,10 +101,7 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
       if (isSupabaseConfigured()) {
         success = await deleteAuditById(id);
       } else {
-        // עדכון לוקלי - הסרת הסקר מהמערך
         const updatedAudits = audits.filter(audit => audit.id !== id);
-        
-        // שמירה בסטורג'
         success = saveAuditsToStorage(null, updatedAudits);
         
         if (success) {
@@ -118,7 +110,6 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
       }
       
       if (success) {
-        // וידוא שהסקר הוסר מהמצב המקומי
         setAudits(prevAudits => prevAudits.filter(audit => audit.id !== id));
         console.log(`[handleDeleteAudit] Successfully deleted audit ${id}`);
       } else {
@@ -138,7 +129,7 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
       }
       
       const canEdit = (auditOwnerId: string) => {
-        if (user.role === "מנהלת") return true;
+        if (user.role === "מנהלת" || user.role === "מנהל מערכת" || user.isAdmin) return true;
         return user.role === "בודק" && auditOwnerId === user.email;
       };
       
@@ -154,7 +145,6 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
         success = await updateAuditStatusInDb(audit.id, newStatus, reason, user.name);
         
         if (success) {
-          // רענון הנתונים מהדאטאבייס
           const updatedAudits = await getAudits(user.email, user.role);
           setAudits(updatedAudits);
         }
@@ -184,7 +174,6 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
           return a;
         });
         
-        // שמירה בסטורג'
         success = saveAuditsToStorage(null, updatedAudits);
         
         if (success) {
@@ -212,13 +201,11 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
     
     try {
       if (formMode === "create") {
-        // יצירת סקר חדש
         let newAudit: Audit;
         
         if (isSupabaseConfigured()) {
           newAudit = await createNewAudit(auditData, user.email, user.name);
         } else {
-          // Fallback to local creation
           newAudit = {
             ...auditData,
             id: crypto.randomUUID(),
@@ -238,11 +225,9 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
             ownerName: user.name
           } as Audit;
           
-          // עדכון ושמירת הסקרים
           const updatedAudits = [newAudit, ...audits];
           setAudits(updatedAudits);
           
-          // שמירה בלוקל סטורג'
           const saved = saveAuditsToStorage(null, updatedAudits);
           if (!saved) {
             throw new Error("שגיאה בשמירת הסקר");
@@ -253,32 +238,27 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
         toast.success("סקר חדש נוצר בהצלחה");
         return newAudit;
       } else if (formMode === "edit" && currentAudit) {
-        // וידוא הרשאות עריכה
         if (!canEdit(currentAudit.ownerId)) {
           toast.error("אין לך הרשאה לערוך סקר זה");
           return null;
         }
         
-        // עדכון סקר קיים
         let updatedAudit: Audit;
         
         if (isSupabaseConfigured()) {
           updatedAudit = await updateExistingAudit(currentAudit.id, auditData, user.name);
         } else {
-          // Fallback to local update
           updatedAudit = {
             ...currentAudit,
             ...auditData,
           };
           
-          // עדכון ושמירת הסקרים
           const updatedAudits = audits.map(audit => 
             audit.id === updatedAudit.id ? updatedAudit : audit
           );
           
           setAudits(updatedAudits);
           
-          // שמירה בלוקל סטורג'
           const saved = saveAuditsToStorage(null, updatedAudits);
           if (!saved) {
             throw new Error("שגיאה בשמירת הסקר");

@@ -16,14 +16,14 @@ export const useAuditPermissions = (user: User | null) => {
     return user.role === "בודק" && auditOwnerId === user.email;
   };
 
-  // בדיקת הרשאות לעריכה
+  // בדיקת הרשאות לעריכה - מנהלת רואה הכל!
   const canEdit = (auditOwnerId: string) => {
     if (!user) return false;
     
     // מנהלי מערכת יכולים לערוך כל סקר
     if (user.isAdmin || user.role === "מנהל מערכת") return true;
     
-    // מנהלות יכולות לערוך כל רשומה
+    // מנהלות יכולות לערוך כל רשומה (לא רק את שלהן!)
     if (user.role === "מנהלת") return true;
     
     // בודקים יכולים לערוך רק את הסקרים שלהם

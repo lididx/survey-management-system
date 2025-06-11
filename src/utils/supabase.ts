@@ -1,8 +1,7 @@
-
 import { createClient } from '@supabase/supabase-js';
 import { Audit, User, StatusType } from '@/types/types';
 import { toast } from 'sonner';
-import { getStoredAudits, saveAuditsToStorage, sampleAudits } from './auditStorage';
+import { getStoredAudits, saveAuditsToStorage } from './auditStorage';
 
 // Mock Supabase credentials to avoid errors
 const supabaseUrl = 'https://your-project-url.supabase.co';
@@ -20,7 +19,6 @@ export const isSupabaseConfigured = () => {
 
 let supabaseClient;
 try {
-  // Only create a client if URLs are valid
   if (isSupabaseConfigured()) {
     supabaseClient = createClient(supabaseUrl, supabaseKey);
   } else {
@@ -30,19 +28,20 @@ try {
   console.error("[Supabase] Client creation error:", error);
 }
 
-// Get all audits (based on user role)
+// Get all audits (based on user role) - NO SAMPLE DATA ADDITION
 export const getAudits = async (userEmail: string, userRole: string): Promise<Audit[]> => {
   console.log(`[getAudits] Getting audits for ${userEmail} with role ${userRole}`);
   
-  // Fallback to localStorage if Supabase not configured
+  // Fallback to localStorage if Supabase not configured - NO SAMPLE DATA
   if (!isSupabaseConfigured()) {
-    console.log("[getAudits] Using local storage fallback");
+    console.log("[getAudits] Using local storage fallback - returning existing audits only");
     const storedAudits = getStoredAudits(null);
-    return storedAudits.length > 0 ? storedAudits : sampleAudits;
+    console.log(`[getAudits] Found ${storedAudits.length} existing audits in localStorage`);
+    return storedAudits; // Return only existing audits, NO SAMPLE DATA
   }
   
   try {
-    // מנהלים רואים את כל הסקרים, בודקים רואים רק את שלהם
+    // Managers see all audits, auditors see only their own
     let query = supabaseClient.from('audits').select('*');
     
     if (userRole === "בודק") {
@@ -74,9 +73,10 @@ export const getAudits = async (userEmail: string, userRole: string): Promise<Au
     return parsedAudits;
   } catch (error) {
     console.error("[getAudits] Error:", error);
-    // במקרה של שגיאה - השתמש בנתונים מקומיים
+    // In case of error - return only existing local audits, NO SAMPLE DATA
     const localAudits = getStoredAudits(null);
-    return localAudits.length > 0 ? localAudits : sampleAudits;
+    console.log(`[getAudits] Fallback: returning ${localAudits.length} existing local audits`);
+    return localAudits;
   }
 };
 
@@ -84,7 +84,6 @@ export const getAudits = async (userEmail: string, userRole: string): Promise<Au
 export const createNewAudit = async (auditData: Partial<Audit>, userEmail: string, userName: string): Promise<Audit> => {
   console.log("[createNewAudit] Creating new audit");
 
-  // Fallback to localStorage if Supabase not configured
   if (!isSupabaseConfigured()) {
     console.log("[createNewAudit] Using local storage fallback");
     const newAudit: Audit = {
@@ -116,7 +115,6 @@ export const createNewAudit = async (auditData: Partial<Audit>, userEmail: strin
   try {
     const newAuditId = crypto.randomUUID();
     
-    // יצירת רשומת סקר חדשה
     const newAudit: Audit = {
       ...auditData,
       id: newAuditId,
@@ -136,7 +134,6 @@ export const createNewAudit = async (auditData: Partial<Audit>, userEmail: strin
       ownerName: userName
     } as Audit;
     
-    // הוספת הסקר לבסיס הנתונים
     const { error } = await supabaseClient.from('audits').insert(newAudit);
     
     if (error) {
@@ -159,7 +156,6 @@ export const createNewAudit = async (auditData: Partial<Audit>, userEmail: strin
 export const updateExistingAudit = async (auditId: string, auditData: Partial<Audit>, userName: string): Promise<Audit> => {
   console.log(`[updateExistingAudit] Updating audit: ${auditId}`);
   
-  // Fallback to localStorage if Supabase not configured
   if (!isSupabaseConfigured()) {
     console.log("[updateExistingAudit] Using local storage fallback");
     const allAudits = getStoredAudits(null);
@@ -181,7 +177,6 @@ export const updateExistingAudit = async (auditId: string, auditData: Partial<Au
   }
 
   try {
-    // קבלת הסקר הנוכחי
     const { data: currentAudit, error: fetchError } = await supabaseClient
       .from('audits')
       .select('*')
@@ -194,13 +189,11 @@ export const updateExistingAudit = async (auditId: string, auditData: Partial<Au
       throw fetchError;
     }
     
-    // מיזוג הנתונים
     const updatedAudit = {
       ...currentAudit,
       ...auditData
     };
     
-    // עדכון הסקר בבסיס הנתונים
     const { error: updateError } = await supabaseClient
       .from('audits')
       .update(updatedAudit)
@@ -226,7 +219,6 @@ export const updateExistingAudit = async (auditId: string, auditData: Partial<Au
 export const deleteAuditById = async (auditId: string): Promise<boolean> => {
   console.log(`[deleteAuditById] Deleting audit: ${auditId}`);
   
-  // Fallback to localStorage if Supabase not configured
   if (!isSupabaseConfigured()) {
     console.log("[deleteAuditById] Using local storage fallback");
     const allAudits = getStoredAudits(null);
@@ -236,7 +228,6 @@ export const deleteAuditById = async (auditId: string): Promise<boolean> => {
   }
 
   try {
-    // מחיקת הסקר מבסיס הנתונים
     const { error } = await supabaseClient
       .from('audits')
       .delete()
@@ -267,7 +258,6 @@ export const updateAuditStatusInDb = async (
 ): Promise<boolean> => {
   console.log(`[updateAuditStatusInDb] Updating status for audit ${auditId} to ${newStatus}`);
   
-  // Fallback to localStorage if Supabase not configured
   if (!isSupabaseConfigured()) {
     console.log("[updateAuditStatusInDb] Using local storage fallback");
     const allAudits = getStoredAudits(null);
@@ -302,7 +292,6 @@ export const updateAuditStatusInDb = async (
   }
 
   try {
-    // קבלת הסקר הנוכחי
     const { data: currentAudit, error: fetchError } = await supabaseClient
       .from('audits')
       .select('currentStatus, statusLog')
@@ -315,7 +304,6 @@ export const updateAuditStatusInDb = async (
       return false;
     }
     
-    // יצירת רשומת שינוי סטטוס חדשה
     const statusChange = {
       id: crypto.randomUUID(),
       timestamp: new Date(),
@@ -327,7 +315,6 @@ export const updateAuditStatusInDb = async (
       modifiedBy: modifiedBy
     };
     
-    // שמירת השינוי בבסיס הנתונים
     const { error: updateError } = await supabaseClient
       .from('audits')
       .update({
@@ -354,7 +341,6 @@ export const updateAuditStatusInDb = async (
 
 // Migrate local data to Supabase if needed
 export const migrateLocalDataToSupabase = async (userEmail: string, userName: string): Promise<boolean> => {
-  // If Supabase is not configured, there's nothing to migrate to
   if (!isSupabaseConfigured()) {
     return false;
   }
@@ -362,7 +348,6 @@ export const migrateLocalDataToSupabase = async (userEmail: string, userName: st
   console.log(`[migrateLocalDataToSupabase] Checking if migration needed for user: ${userEmail}`);
   
   try {
-    // Check if we already migrated
     const KEY_MIGRATED = `migrated_${userEmail}`;
     const alreadyMigrated = localStorage.getItem(KEY_MIGRATED) === 'true';
     
@@ -371,7 +356,6 @@ export const migrateLocalDataToSupabase = async (userEmail: string, userName: st
       return false;
     }
     
-    // Get local audits
     const localAudits = getStoredAudits(userEmail);
     
     if (!localAudits || localAudits.length === 0) {
@@ -382,7 +366,6 @@ export const migrateLocalDataToSupabase = async (userEmail: string, userName: st
     
     console.log(`[migrateLocalDataToSupabase] Found ${localAudits.length} local audits to migrate`);
     
-    // Insert all local audits to Supabase
     const { error } = await supabaseClient.from('audits').insert(localAudits);
     
     if (error) {
@@ -390,7 +373,6 @@ export const migrateLocalDataToSupabase = async (userEmail: string, userName: st
       return false;
     }
     
-    // Mark as migrated
     localStorage.setItem(KEY_MIGRATED, 'true');
     console.log(`[migrateLocalDataToSupabase] Successfully migrated ${localAudits.length} audits for user: ${userEmail}`);
     
