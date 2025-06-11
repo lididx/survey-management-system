@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User } from '@/types/types';
+import { User, UserRole } from '@/types/types';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { logoutUser } from '@/utils/supabaseAuth';
@@ -30,7 +30,7 @@ export const useAuthManager = () => {
       return {
         id: authUser.id,
         email: profileData.email,
-        role: profileData.role,
+        role: profileData.role as UserRole,
         name: profileData.name,
         isAdmin: profileData.is_admin,
         lastLogin: new Date()

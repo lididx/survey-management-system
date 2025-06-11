@@ -42,7 +42,7 @@ const PasswordChangeForm = ({ userId, onSuccess }: PasswordChangeFormProps) => {
   const onSubmit = async (data: PasswordChangeFormValues) => {
     setIsLoading(true);
     try {
-      const { success, error } = await changePassword(userId, data.newPassword);
+      const { success, error } = await changePassword(data.newPassword);
       
       if (!success) {
         toast.error("שגיאה בשינוי סיסמה", {
