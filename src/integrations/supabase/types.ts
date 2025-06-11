@@ -9,7 +9,175 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      audits: {
+        Row: {
+          client_name: string | null
+          created_at: string | null
+          current_status: string
+          description: string | null
+          id: string
+          is_archived: boolean | null
+          name: string
+          owner_id: string
+          owner_name: string
+          planned_meeting_date: string | null
+          received_date: string
+          scheduled_date: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          client_name?: string | null
+          created_at?: string | null
+          current_status?: string
+          description?: string | null
+          id?: string
+          is_archived?: boolean | null
+          name: string
+          owner_id: string
+          owner_name: string
+          planned_meeting_date?: string | null
+          received_date?: string
+          scheduled_date?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          client_name?: string | null
+          created_at?: string | null
+          current_status?: string
+          description?: string | null
+          id?: string
+          is_archived?: boolean | null
+          name?: string
+          owner_id?: string
+          owner_name?: string
+          planned_meeting_date?: string | null
+          received_date?: string
+          scheduled_date?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      contacts: {
+        Row: {
+          audit_id: string
+          created_at: string | null
+          email: string | null
+          full_name: string
+          gender: string | null
+          id: string
+          phone: string | null
+          role: string | null
+        }
+        Insert: {
+          audit_id: string
+          created_at?: string | null
+          email?: string | null
+          full_name: string
+          gender?: string | null
+          id?: string
+          phone?: string | null
+          role?: string | null
+        }
+        Update: {
+          audit_id?: string
+          created_at?: string | null
+          email?: string | null
+          full_name?: string
+          gender?: string | null
+          id?: string
+          phone?: string | null
+          role?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contacts_audit_id_fkey"
+            columns: ["audit_id"]
+            isOneToOne: false
+            referencedRelation: "audits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string | null
+          email: string
+          id: string
+          is_admin: boolean | null
+          name: string
+          role: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          id?: string
+          is_admin?: boolean | null
+          name: string
+          role: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          id?: string
+          is_admin?: boolean | null
+          name?: string
+          role?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      status_log: {
+        Row: {
+          audit_id: string
+          created_at: string | null
+          id: string
+          modified_by: string
+          new_date: string | null
+          new_status: string
+          old_date: string | null
+          old_status: string | null
+          reason: string | null
+          timestamp: string
+        }
+        Insert: {
+          audit_id: string
+          created_at?: string | null
+          id?: string
+          modified_by: string
+          new_date?: string | null
+          new_status: string
+          old_date?: string | null
+          old_status?: string | null
+          reason?: string | null
+          timestamp?: string
+        }
+        Update: {
+          audit_id?: string
+          created_at?: string | null
+          id?: string
+          modified_by?: string
+          new_date?: string | null
+          new_status?: string
+          old_date?: string | null
+          old_status?: string | null
+          reason?: string | null
+          timestamp?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "status_log_audit_id_fkey"
+            columns: ["audit_id"]
+            isOneToOne: false
+            referencedRelation: "audits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

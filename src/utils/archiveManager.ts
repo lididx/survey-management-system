@@ -1,50 +1,112 @@
 
-// Archive management utility - separate from audit status
-const ARCHIVED_AUDITS_KEY = 'archived_audit_ids';
+import { Audit, StatusType } from "@/types/types";
+import { toast } from "sonner";
+import { 
+  getArchivedAudits, 
+  updateAuditArchiveStatus, 
+  deleteAuditById, 
+  updateAuditStatusInDb 
+} from "./supabase";
 
-export const getArchivedAuditIds = (): string[] => {
+export const moveToArchive = async (auditId: string): Promise<boolean> => {
+  console.log(`[moveToArchive] Moving audit ${auditId} to archive`);
+  
   try {
-    const stored = localStorage.getItem(ARCHIVED_AUDITS_KEY);
-    return stored ? JSON.parse(stored) : [];
+    const success = await updateAuditArchiveStatus(auditId, true);
+    
+    if (success) {
+      toast.success("הסקר הועבר לארכיון");
+      return true;
+    } else {
+      toast.error("שגיאה בהעברת הסקר לארכיון");
+      return false;
+    }
   } catch (error) {
-    console.error('Error loading archived audit IDs:', error);
-    return [];
-  }
-};
-
-export const saveArchivedAuditIds = (ids: string[]): boolean => {
-  try {
-    localStorage.setItem(ARCHIVED_AUDITS_KEY, JSON.stringify(ids));
-    return true;
-  } catch (error) {
-    console.error('Error saving archived audit IDs:', error);
+    console.error("[moveToArchive] Error:", error);
+    toast.error("שגיאה בהעברת הסקר לארכיון");
     return false;
   }
 };
 
-export const addToArchive = (auditId: string): boolean => {
-  const archivedIds = getArchivedAuditIds();
-  if (!archivedIds.includes(auditId)) {
-    archivedIds.push(auditId);
-    return saveArchivedAuditIds(archivedIds);
+export const restoreFromArchive = async (auditId: string): Promise<boolean> => {
+  console.log(`[restoreFromArchive] Restoring audit ${auditId} from archive`);
+  
+  try {
+    const success = await updateAuditArchiveStatus(auditId, false);
+    
+    if (success) {
+      toast.success("הסקר הוחזר מהארכיון");
+      return true;
+    } else {
+      toast.error("שגיאה בהחזרת הסקר מהארכיון");
+      return false;
+    }
+  } catch (error) {
+    console.error("[restoreFromArchive] Error:", error);
+    toast.error("שגיאה בהחזרת הסקר מהארכיון");
+    return false;
   }
-  return true;
 };
 
-export const removeFromArchive = (auditId: string): boolean => {
-  const archivedIds = getArchivedAuditIds();
-  const updatedIds = archivedIds.filter(id => id !== auditId);
-  return saveArchivedAuditIds(updatedIds);
+export const deleteFromArchive = async (auditId: string): Promise<boolean> => {
+  console.log(`[deleteFromArchive] Deleting audit ${auditId} from archive`);
+  
+  try {
+    const success = await deleteAuditById(auditId);
+    
+    if (success) {
+      toast.success("הסקר נמחק סופית מהארכיון");
+      return true;
+    } else {
+      toast.error("שגיאה במחיקת הסקר מהארכיון");
+      return false;
+    }
+  } catch (error) {
+    console.error("[deleteFromArchive] Error:", error);
+    toast.error("שגיאה במחיקת הסקר מהארכיון");
+    return false;
+  }
 };
 
-export const isAuditArchived = (auditId: string): boolean => {
-  const archivedIds = getArchivedAuditIds();
-  return archivedIds.includes(auditId);
+export const changeStatusInArchive = async (
+  auditId: string, 
+  newStatus: StatusType, 
+  modifiedBy: string
+): Promise<boolean> => {
+  console.log(`[changeStatusInArchive] Changing status for audit ${auditId} to ${newStatus}`);
+  
+  try {
+    const success = await updateAuditStatusInDb(
+      auditId, 
+      newStatus, 
+      `עדכון סטטוס ל-${newStatus} מהארכיון`, 
+      modifiedBy
+    );
+    
+    if (success) {
+      toast.success(`סטטוס הסקר עודכן ל-${newStatus}`);
+      return true;
+    } else {
+      toast.error("שגיאה בעדכון סטטוס הסקר");
+      return false;
+    }
+  } catch (error) {
+    console.error("[changeStatusInArchive] Error:", error);
+    toast.error("שגיאה בעדכון סטטוס הסקר");
+    return false;
+  }
 };
 
-export const isAuditInArchiveView = (auditId: string, auditStatus: string): boolean => {
-  // An audit is in archive view if:
-  // 1. It's manually archived, OR
-  // 2. Its status is "הסתיים"
-  return isAuditArchived(auditId) || auditStatus === "הסתיים";
+export const loadArchivedAudits = async (userEmail: string, userRole: string): Promise<Audit[]> => {
+  console.log(`[loadArchivedAudits] Loading archived audits for ${userEmail}`);
+  
+  try {
+    const audits = await getArchivedAudits(userEmail, userRole);
+    console.log(`[loadArchivedAudits] Loaded ${audits.length} archived audits`);
+    return audits;
+  } catch (error) {
+    console.error("[loadArchivedAudits] Error:", error);
+    toast.error("שגיאה בטעינת סקרים מהארכיון");
+    return [];
+  }
 };

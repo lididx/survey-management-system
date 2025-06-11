@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Audit, User, StatusType } from '@/types/types';
 import { toast } from 'sonner';
@@ -6,13 +7,8 @@ import {
   createNewAudit, 
   updateExistingAudit, 
   deleteAuditById,
-  updateAuditStatusInDb,
-  isSupabaseConfigured
+  updateAuditStatusInDb
 } from '@/utils/supabase';
-import {
-  getStoredAudits,
-  saveAuditsToStorage
-} from '@/utils/auditStorage';
 
 export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
   const [audits, setAudits] = useState<Audit[]>([]);
@@ -35,17 +31,6 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
       try {
         setLoading(true);
         
-        if (!isSupabaseConfigured()) {
-          console.log("[useAuditManager] Supabase is not configured, using localStorage data");
-          
-          // NO SAMPLE AUDITS - only load existing stored audits
-          const storedAudits = getStoredAudits(null);
-          console.log(`[useAuditManager] Loaded ${storedAudits.length} stored audits from localStorage`);
-          setAudits(storedAudits);
-          setLoading(false);
-          return;
-        }
-
         const supabaseAudits = await getAudits(user.email, user.role);
         console.log(`[useAuditManager] Loaded ${supabaseAudits.length} audits from Supabase`);
         
@@ -53,10 +38,7 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
       } catch (error) {
         console.error("[useAuditManager] Error loading audits:", error);
         toast.error("שגיאה בטעינת נתוני הסקרים");
-        
-        // Only load existing stored audits, NO SAMPLE DATA
-        const storedAudits = getStoredAudits(null);
-        setAudits(storedAudits);
+        setAudits([]);
       } finally {
         setLoading(false);
       }
@@ -65,7 +47,7 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
     loadAudits();
   }, [user]);
 
-  // Fix the filtering logic - managers should see ALL audits
+  // Filter audits based on user role
   const filteredAudits = user ? (
     user.role === "מנהלת" || user.role === "מנהל מערכת" || user.isAdmin
       ? audits // Managers see ALL audits
@@ -96,21 +78,15 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
         return;
       }
       
-      let success = false;
-      
-      if (isSupabaseConfigured()) {
-        success = await deleteAuditById(id);
-      } else {
-        const updatedAudits = audits.filter(audit => audit.id !== id);
-        success = saveAuditsToStorage(null, updatedAudits);
-        
-        if (success) {
-          setAudits(updatedAudits);
-        }
-      }
+      const success = await deleteAuditById(id);
       
       if (success) {
-        setAudits(prevAudits => prevAudits.filter(audit => audit.id !== id));
+        // Refresh audits from database
+        if (user) {
+          const updatedAudits = await getAudits(user.email, user.role);
+          setAudits(updatedAudits);
+        }
+        toast.success("הסקר נמחק בהצלחה");
         console.log(`[handleDeleteAudit] Successfully deleted audit ${id}`);
       } else {
         throw new Error("שגיאה במחיקת הסקר");
@@ -139,50 +115,12 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
       }
       
       const reason = `עדכון סטטוס ל-${newStatus}`;
-      let success = false;
-      
-      if (isSupabaseConfigured()) {
-        success = await updateAuditStatusInDb(audit.id, newStatus, reason, user.name);
-        
-        if (success) {
-          const updatedAudits = await getAudits(user.email, user.role);
-          setAudits(updatedAudits);
-        }
-      } else {
-        const now = new Date();
-        const newStatusLog = {
-          id: crypto.randomUUID(),
-          timestamp: now,
-          oldStatus: audit.currentStatus,
-          newStatus,
-          oldDate: null,
-          newDate: null,
-          reason,
-          modifiedBy: user.name
-        };
-        
-        const updatedAudit = {
-          ...audit,
-          currentStatus: newStatus,
-          statusLog: [newStatusLog, ...audit.statusLog]
-        };
-        
-        const updatedAudits = audits.map(a => {
-          if (a.id === audit.id) {
-            return updatedAudit;
-          }
-          return a;
-        });
-        
-        success = saveAuditsToStorage(null, updatedAudits);
-        
-        if (success) {
-          setAudits(updatedAudits);
-          console.log(`[handleStatusChange] Updated audit ${audit.id} status to ${newStatus}`);
-        }
-      }
+      const success = await updateAuditStatusInDb(audit.id, newStatus, reason, user.name);
       
       if (success) {
+        // Refresh audits from database
+        const updatedAudits = await getAudits(user.email, user.role);
+        setAudits(updatedAudits);
         toast.success(`סטטוס הסקר עודכן ל-${newStatus}`);
       } else {
         throw new Error("שגיאה בעדכון הסטטוס");
@@ -201,41 +139,15 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
     
     try {
       if (formMode === "create") {
-        let newAudit: Audit;
+        const newAudit = await createNewAudit(auditData, user.email, user.name);
         
-        if (isSupabaseConfigured()) {
-          newAudit = await createNewAudit(auditData, user.email, user.name);
-        } else {
-          newAudit = {
-            ...auditData,
-            id: crypto.randomUUID(),
-            receivedDate: new Date(),
-            currentStatus: "התקבל",
-            statusLog: [{
-              id: crypto.randomUUID(),
-              timestamp: new Date(),
-              oldStatus: null,
-              newStatus: "התקבל",
-              oldDate: null,
-              newDate: null,
-              reason: "יצירת סקר",
-              modifiedBy: user.name
-            }],
-            ownerId: user.email,
-            ownerName: user.name
-          } as Audit;
-          
-          const updatedAudits = [newAudit, ...audits];
-          setAudits(updatedAudits);
-          
-          const saved = saveAuditsToStorage(null, updatedAudits);
-          if (!saved) {
-            throw new Error("שגיאה בשמירת הסקר");
-          }
-        }
+        // Refresh audits from database to include the new audit
+        const updatedAudits = await getAudits(user.email, user.role);
+        setAudits(updatedAudits);
         
         console.log("[handleAuditSubmit] Created new audit:", newAudit);
         toast.success("סקר חדש נוצר בהצלחה");
+        setNewlyCreatedAudit(newAudit);
         return newAudit;
       } else if (formMode === "edit" && currentAudit) {
         if (!canEdit(currentAudit.ownerId)) {
@@ -243,27 +155,11 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
           return null;
         }
         
-        let updatedAudit: Audit;
+        const updatedAudit = await updateExistingAudit(currentAudit.id, auditData, user.name);
         
-        if (isSupabaseConfigured()) {
-          updatedAudit = await updateExistingAudit(currentAudit.id, auditData, user.name);
-        } else {
-          updatedAudit = {
-            ...currentAudit,
-            ...auditData,
-          };
-          
-          const updatedAudits = audits.map(audit => 
-            audit.id === updatedAudit.id ? updatedAudit : audit
-          );
-          
-          setAudits(updatedAudits);
-          
-          const saved = saveAuditsToStorage(null, updatedAudits);
-          if (!saved) {
-            throw new Error("שגיאה בשמירת הסקר");
-          }
-        }
+        // Refresh audits from database
+        const updatedAudits = await getAudits(user.email, user.role);
+        setAudits(updatedAudits);
         
         toast.success("סקר עודכן בהצלחה");
         return updatedAudit;
