@@ -2,7 +2,7 @@
 import { Audit, StatusType } from "@/types/types";
 import { toast } from "sonner";
 import { 
-  getArchivedAudits, 
+  getAudits, 
   updateAuditArchiveStatus, 
   deleteAuditById, 
   updateAuditStatusInDb 
@@ -114,12 +114,12 @@ export const changeStatusInArchive = async (
   }
 };
 
-export const loadArchivedAudits = async (userEmail: string, userRole: string): Promise<Audit[]> => {
-  console.log(`[loadArchivedAudits] Loading archived audits for ${userEmail}`);
+export const loadArchivedAudits = async (): Promise<Audit[]> => {
+  console.log(`[loadArchivedAudits] Loading archived audits from Supabase`);
   
   try {
-    const audits = await getArchivedAudits(userEmail, userRole);
-    console.log(`[loadArchivedAudits] Loaded ${audits.length} archived audits`);
+    const audits = await getAudits();
+    console.log(`[loadArchivedAudits] Loaded ${audits.length} audits`);
     return audits;
   } catch (error) {
     console.error("[loadArchivedAudits] Error:", error);

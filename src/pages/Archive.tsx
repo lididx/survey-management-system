@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -44,8 +43,8 @@ const ArchivePage = () => {
       setLoadingError(null);
       console.log("[Archive] Starting to load audits...");
       
-      // Load audits from database based on user permissions
-      const allAudits = await getAudits(currentUser.email, currentUser.role);
+      // Load audits from database - now only needs user ID from auth
+      const allAudits = await getAudits();
       console.log("[Archive] Loaded audits:", allAudits.length);
       
       setAudits(allAudits);
