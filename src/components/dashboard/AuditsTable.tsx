@@ -16,7 +16,9 @@ import {
   Mail,
   Trash2,
   UserCircle,
-  MessageCircle
+  MessageCircle,
+  Archive,
+  ArchiveRestore
 } from "lucide-react";
 import { Audit, StatusType } from "@/types/types";
 import { StatusLogView } from "@/components/StatusLogView";
@@ -94,6 +96,24 @@ export const AuditsTable = ({
     const whatsappUrl = `https://wa.me/972${cleanPhone.startsWith('0') ? cleanPhone.substring(1) : cleanPhone}`;
     window.open(whatsappUrl, '_blank');
     toast.success(`נפתח WhatsApp עבור ${contactName}`);
+  };
+
+  const handleArchiveAudit = (audit: Audit) => {
+    if (!canEdit(audit.ownerId)) {
+      toast.error("אין לך הרשאה לארכב סקר זה");
+      return;
+    }
+    onStatusChange(audit, "הסתיים");
+    toast.success(`הסקר "${audit.name}" הועבר לארכיון`);
+  };
+
+  const handleRestoreAudit = (audit: Audit) => {
+    if (!canEdit(audit.ownerId)) {
+      toast.error("אין לך הרשאה להחזיר סקר זה");
+      return;
+    }
+    onStatusChange(audit, "בבקרה");
+    toast.success(`הסקר "${audit.name}" הוחזר לרשימת הסקרים הפעילים`);
   };
   
   const getStatusBadge = (status: StatusType, audit: Audit) => {
@@ -263,6 +283,28 @@ export const AuditsTable = ({
                           <ChevronDown className="h-4 w-4" />
                         }
                       </Button>
+                      {/* Archive/Restore Button */}
+                      {isArchive ? (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => handleRestoreAudit(audit)}
+                          disabled={!canEdit(audit.ownerId)}
+                          title="החזר לרשימת הסקרים הפעילים"
+                        >
+                          <ArchiveRestore className="h-4 w-4" />
+                        </Button>
+                      ) : (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => handleArchiveAudit(audit)}
+                          disabled={!canEdit(audit.ownerId)}
+                          title="העבר לארכיון"
+                        >
+                          <Archive className="h-4 w-4" />
+                        </Button>
+                      )}
                       {canDelete(audit.ownerId) && (
                         <Button 
                           variant="destructive" 
