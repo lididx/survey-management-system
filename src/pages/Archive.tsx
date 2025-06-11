@@ -24,10 +24,12 @@ const ArchivePage = () => {
     handleEditAudit,
     handleDeleteAudit,
     handleStatusChange,
+    loading
   } = useAuditManager([], user);
   
   const { canDelete, canEdit } = useAuditPermissions(user);
 
+  // סינון סקרים שבארכיון בלבד
   const archivedAudits = filteredAudits.filter(
     audit => audit.currentStatus === "הסתיים"
   );
@@ -40,13 +42,32 @@ const ArchivePage = () => {
       )
     : archivedAudits;
 
-  const handleAuditStatusChange = (audit: Audit, newStatus: StatusType) => {
-    handleStatusChange(audit, newStatus);
+  const handleAuditStatusChange = async (audit: Audit, newStatus: StatusType) => {
+    console.log(`[Archive] Changing status from ${audit.currentStatus} to ${newStatus} for audit ${audit.id}`);
     
-    if (newStatus !== "הסתיים") {
-      toast.success("הסקר הוחזר לרשימת הסקרים הפעילים", {
-        description: `הסקר "${audit.name}" הועבר בהצלחה לסטטוס ${newStatus}`
-      });
+    try {
+      await handleStatusChange(audit, newStatus);
+      
+      if (newStatus !== "הסתיים") {
+        toast.success("הסקר הוחזר לרשימת הסקרים הפעילים", {
+          description: `הסקר "${audit.name}" הועבר בהצלחה לסטטוס ${newStatus}`
+        });
+      }
+    } catch (error) {
+      console.error("[Archive] Error changing status:", error);
+      toast.error("שגיאה בעדכון סטטוס הסקר");
+    }
+  };
+
+  const handleAuditDelete = async (auditId: string) => {
+    console.log(`[Archive] Deleting audit ${auditId}`);
+    
+    try {
+      await handleDeleteAudit(auditId, canDelete);
+      toast.success("הסקר נמחק בהצלחה מהארכיון");
+    } catch (error) {
+      console.error("[Archive] Error deleting audit:", error);
+      toast.error("שגיאה במחיקת הסקר");
     }
   };
 
@@ -72,6 +93,17 @@ const ArchivePage = () => {
   };
 
   if (!user) return null;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center" dir="rtl">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p>טוען נתונים...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-100" dir="rtl">
@@ -116,7 +148,7 @@ const ArchivePage = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Archive className="h-4 w-4" />
-              רשימת סקרים בארכיון
+              רשימת סקרים בארכיון ({displayedAudits.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -126,7 +158,7 @@ const ArchivePage = () => {
               canEdit={canEdit}
               canDelete={canDelete}
               onEditAudit={(audit) => {}}
-              onDeleteAudit={(id) => handleDeleteAudit(id, canDelete)}
+              onDeleteAudit={handleAuditDelete}
               onEmailClick={() => {}}
               onStatusChange={handleAuditStatusChange}
               isArchive={true}

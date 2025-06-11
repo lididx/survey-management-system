@@ -99,9 +99,22 @@ export const AuditsTable = ({
 
   const handlePhoneClick = (phone: string, contactName: string) => {
     const cleanPhone = phone.replace(/[^\d]/g, '');
-    const formattedPhone = cleanPhone.startsWith('0') ? cleanPhone : `0${cleanPhone}`;
-    const telUrl = `tel:${formattedPhone}`;
-    window.location.href = telUrl;
+    
+    // תיקון: הוספת קידומת ישראל אם אין
+    let formattedPhone = cleanPhone;
+    if (cleanPhone.startsWith('0')) {
+      formattedPhone = '972' + cleanPhone.substring(1);
+    } else if (!cleanPhone.startsWith('972')) {
+      formattedPhone = '972' + cleanPhone;
+    }
+    
+    const telUrl = `tel:+${formattedPhone}`;
+    
+    // יצירת אלמנט a זמני לפתיחת הקישור
+    const link = document.createElement('a');
+    link.href = telUrl;
+    link.click();
+    
     toast.success(`נפתח חייגן עבור ${contactName}`);
   };
 
@@ -248,7 +261,7 @@ export const AuditsTable = ({
                                   size="sm"
                                   onClick={() => handlePhoneClick(contact.phone, contact.fullName)}
                                   className="h-6 w-6 p-0"
-                                  title="חייג"
+                                  title="התקשר"
                                 >
                                   <Phone className="h-3 w-3 text-blue-600" />
                                 </Button>

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Audit, User, StatusType } from '@/types/types';
 import { toast } from 'sonner';
@@ -105,14 +106,23 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
       if (isSupabaseConfigured()) {
         success = await deleteAuditById(id);
       } else {
+        // עדכון לוקלי - הסרת הסקר מהמערך
         const updatedAudits = audits.filter(audit => audit.id !== id);
-        setAudits(updatedAudits);
+        
+        // שמירה בסטורג'
         success = saveAuditsToStorage(null, updatedAudits);
+        
+        if (success) {
+          setAudits(updatedAudits);
+        }
       }
       
       if (success) {
+        // וידוא שהסקר הוסר מהמצב המקומי
         setAudits(prevAudits => prevAudits.filter(audit => audit.id !== id));
-        toast.success("סקר נמחק בהצלחה");
+        console.log(`[handleDeleteAudit] Successfully deleted audit ${id}`);
+      } else {
+        throw new Error("שגיאה במחיקת הסקר");
       }
     } catch (error) {
       console.error("[handleDeleteAudit] Error:", error);
@@ -142,6 +152,12 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
       
       if (isSupabaseConfigured()) {
         success = await updateAuditStatusInDb(audit.id, newStatus, reason, user.name);
+        
+        if (success) {
+          // רענון הנתונים מהדאטאבייס
+          const updatedAudits = await getAudits(user.email, user.role);
+          setAudits(updatedAudits);
+        }
       } else {
         const now = new Date();
         const newStatusLog = {
@@ -155,23 +171,32 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
           modifiedBy: user.name
         };
         
+        const updatedAudit = {
+          ...audit,
+          currentStatus: newStatus,
+          statusLog: [newStatusLog, ...audit.statusLog]
+        };
+        
         const updatedAudits = audits.map(a => {
           if (a.id === audit.id) {
-            return {
-              ...a,
-              currentStatus: newStatus,
-              statusLog: [newStatusLog, ...a.statusLog]
-            };
+            return updatedAudit;
           }
           return a;
         });
         
-        setAudits(updatedAudits);
+        // שמירה בסטורג'
         success = saveAuditsToStorage(null, updatedAudits);
+        
+        if (success) {
+          setAudits(updatedAudits);
+          console.log(`[handleStatusChange] Updated audit ${audit.id} status to ${newStatus}`);
+        }
       }
       
       if (success) {
         toast.success(`סטטוס הסקר עודכן ל-${newStatus}`);
+      } else {
+        throw new Error("שגיאה בעדכון הסטטוס");
       }
     } catch (error) {
       console.error("[handleStatusChange] Error:", error);
