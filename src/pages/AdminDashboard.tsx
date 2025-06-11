@@ -27,51 +27,13 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { User, UserRole } from "@/types/types";
 import { useAuthManager } from "@/hooks/useAuthManager";
+import { getUsers, createUser } from "@/utils/supabaseAuth";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 
-// Mock users data - in real app this would come from Supabase
-const mockUsers: User[] = [
-  {
-    id: "1",
-    name: "לידור",
-    email: "lidor@example.com",
-    role: "בודק",
-    isAdmin: false,
-    active: true,
-    lastLogin: new Date()
-  },
-  {
-    id: "2", 
-    name: "מורן",
-    email: "moran@example.com",
-    role: "בודק",
-    isAdmin: false,
-    active: true,
-    lastLogin: new Date()
-  },
-  {
-    id: "3",
-    name: "חן", 
-    email: "chen@example.com",
-    role: "מנהלת",
-    isAdmin: false,
-    active: true,
-    lastLogin: new Date()
-  },
-  {
-    id: "4",
-    name: "לידור מנהל",
-    email: "admin@system.com", 
-    role: "מנהל מערכת",
-    isAdmin: true,
-    active: true,
-    lastLogin: new Date()
-  }
-];
-
 const AdminDashboard = () => {
-  const [users, setUsers] = useState<User[]>(mockUsers);
+  const [users, setUsers] = useState<User[]>([]);
   const [showAddUser, setShowAddUser] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [newUser, setNewUser] = useState({
     name: "",
     email: "",
@@ -80,6 +42,23 @@ const AdminDashboard = () => {
   });
   const navigate = useNavigate();
   const { user } = useAuthManager();
+
+  // Load users on component mount
+  useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        const usersList = await getUsers();
+        setUsers(usersList);
+      } catch (error) {
+        console.error("Error loading users:", error);
+        toast.error("שגיאה בטעינת רשימת המשתמשים");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadUsers();
+  }, []);
 
   // Generate secure password
   const generatePassword = () => {
@@ -124,27 +103,62 @@ const AdminDashboard = () => {
     );
   };
 
-  const handleAddUser = () => {
-    if (!newUser.name || !newUser.email || !newUser.password) {
-      toast.error("יש למלא את כל השדות");
+  const handleAddUser = async () => {
+    if (!newUser.name || !newUser.email) {
+      toast.error("יש למלא את כל השדות הנדרשים");
       return;
     }
 
-    const user: User = {
-      id: String(users.length + 1),
-      name: newUser.name,
-      email: newUser.email,
-      role: newUser.role,
-      isAdmin: newUser.role === "מנהל מערכת",
-      active: true,
-      lastLogin: new Date()
-    };
+    if (!user?.id) {
+      toast.error("שגיאה: לא ניתן לזהות את המשתמש הנוכחי");
+      return;
+    }
 
-    setUsers([...users, user]);
-    setNewUser({ name: "", email: "", role: "בודק", password: "" });
-    setShowAddUser(false);
-    
-    toast.success(`משתמש ${newUser.name} נוסף בהצלחה`);
+    try {
+      const { success, user: createdUser, temporaryPassword, error } = await createUser(
+        newUser.email,
+        newUser.name,
+        newUser.role,
+        user.id
+      );
+
+      if (!success || error) {
+        toast.error("שגיאה ביצירת המשתמש", {
+          description: error || "אנא נסה שוב מאוחר יותר"
+        });
+        return;
+      }
+
+      // Add the new user to the local state
+      const newUserData: User = {
+        id: createdUser.id,
+        name: createdUser.name,
+        email: createdUser.email,
+        role: createdUser.role,
+        isAdmin: createdUser.isAdmin,
+        active: true,
+        lastLogin: new Date()
+      };
+
+      setUsers([...users, newUserData]);
+      setNewUser({ name: "", email: "", role: "בודק", password: "" });
+      setShowAddUser(false);
+      
+      toast.success(`המשתמש ${newUser.name} נוסף בהצלחה`, {
+        description: `סיסמה זמנית: ${temporaryPassword}`,
+        duration: 10000,
+        action: {
+          label: "העתק סיסמה",
+          onClick: () => {
+            navigator.clipboard.writeText(temporaryPassword!);
+            toast.success("הסיסמה הועתקה ללוח");
+          }
+        }
+      });
+    } catch (error) {
+      console.error("Error creating user:", error);
+      toast.error("שגיאה ביצירת המשתמש");
+    }
   };
 
   const toggleUserStatus = (userId: string) => {
@@ -152,11 +166,12 @@ const AdminDashboard = () => {
       u.id === userId ? { ...u, active: !u.active } : u
     ));
     
-    const user = users.find(u => u.id === userId);
-    toast.success(`המשתמש ${user?.name} ${user?.active ? 'הושבת' : 'הופעל'}`);
+    const targetUser = users.find(u => u.id === userId);
+    toast.success(`המשתמש ${targetUser?.name} ${targetUser?.active ? 'הושבת' : 'הופעל'}`);
   };
 
-  const formatLastLogin = (date: Date) => {
+  const formatLastLogin = (date: Date | undefined) => {
+    if (!date) return "לא התחבר עדיין";
     return new Date(date).toLocaleDateString("he-IL", {
       year: 'numeric',
       month: '2-digit', 
@@ -262,27 +277,6 @@ const AdminDashboard = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">סיסמא</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="password"
-                      type="password"
-                      value={newUser.password}
-                      onChange={(e) => setNewUser({...newUser, password: e.target.value})}
-                      placeholder="הכנס סיסמא"
-                      className="text-right"
-                      dir="rtl"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setNewUser({...newUser, password: generatePassword()})}
-                    >
-                      צור סיסמא
-                    </Button>
-                  </div>
-                </div>
                 <div className="flex justify-end space-x-2 space-x-reverse pt-4">
                   <Button variant="outline" onClick={() => setShowAddUser(false)}>
                     ביטול
@@ -304,61 +298,65 @@ const AdminDashboard = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="text-right">
-                    <TableHead className="text-center font-medium">שם</TableHead>
-                    <TableHead className="text-center font-medium">מייל</TableHead>
-                    <TableHead className="text-center font-medium">תפקיד</TableHead>
-                    <TableHead className="text-center font-medium">סטטוס</TableHead>
-                    <TableHead className="text-center font-medium">כניסה אחרונה</TableHead>
-                    <TableHead className="text-center font-medium">פעולות</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {users.map((u) => (
-                    <TableRow key={u.id}>
-                      <TableCell className="text-center font-medium">{u.name}</TableCell>
-                      <TableCell className="text-center">{u.email}</TableCell>
-                      <TableCell className="text-center">
-                        <Badge variant={u.isAdmin ? "default" : "secondary"}>
-                          {u.role}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Badge variant={u.active ? "default" : "destructive"}>
-                          {u.active ? "פעיל" : "לא פעיל"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-center text-sm text-gray-600">
-                        {u.lastLogin ? formatLastLogin(u.lastLogin) : "לא התחבר עדיין"}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <div className="flex justify-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleResetPassword(u.id!, u.name)}
-                            className="flex items-center gap-1"
-                          >
-                            <Key className="h-3 w-3" />
-                            איפוס סיסמא
-                          </Button>
-                          <Button
-                            variant={u.active ? "destructive" : "default"}
-                            size="sm"
-                            onClick={() => toggleUserStatus(u.id!)}
-                          >
-                            {u.active ? "השבת" : "הפעל"}
-                          </Button>
-                        </div>
-                      </TableCell>
+            {isLoading ? (
+              <div className="text-center py-8">טוען משתמשים...</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="text-right">
+                      <TableHead className="text-center font-medium">שם</TableHead>
+                      <TableHead className="text-center font-medium">מייל</TableHead>
+                      <TableHead className="text-center font-medium">תפקיד</TableHead>
+                      <TableHead className="text-center font-medium">סטטוס</TableHead>
+                      <TableHead className="text-center font-medium">כניסה אחרונה</TableHead>
+                      <TableHead className="text-center font-medium">פעולות</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                  </TableHeader>
+                  <TableBody>
+                    {users.map((u) => (
+                      <TableRow key={u.id}>
+                        <TableCell className="text-center font-medium">{u.name}</TableCell>
+                        <TableCell className="text-center">{u.email}</TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant={u.isAdmin ? "default" : "secondary"}>
+                            {u.role}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant={u.active !== false ? "default" : "destructive"}>
+                            {u.active !== false ? "פעיל" : "לא פעיל"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-center text-sm text-gray-600">
+                          {formatLastLogin(u.lastLogin)}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <div className="flex justify-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleResetPassword(u.id!, u.name)}
+                              className="flex items-center gap-1"
+                            >
+                              <Key className="h-3 w-3" />
+                              איפוס סיסמא
+                            </Button>
+                            <Button
+                              variant={u.active !== false ? "destructive" : "default"}
+                              size="sm"
+                              onClick={() => toggleUserStatus(u.id!)}
+                            >
+                              {u.active !== false ? "השבת" : "הפעל"}
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </CardContent>
         </Card>
       </main>

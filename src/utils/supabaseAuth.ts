@@ -13,6 +13,7 @@ const isSupabaseConfigured = supabaseUrl !== 'https://placeholder.supabase.co' &
 export const supabase = isSupabaseConfigured ? createClient(supabaseUrl, supabaseKey) : null;
 
 const CURRENT_USER_KEY = 'current_user';
+const MOCK_USERS_KEY = 'mock_users';
 
 // User types
 interface SupabaseUser extends User {
@@ -20,8 +21,8 @@ interface SupabaseUser extends User {
   lastLogin?: Date;
 }
 
-// Mock users for development when Supabase is not configured - עם המיילים החדשים
-const mockUsers = [
+// Mock users for development when Supabase is not configured
+const defaultMockUsers = [
   {
     id: '1',
     email: 'lidorn@citadel.co.il',
@@ -56,10 +57,41 @@ const mockUsers = [
   }
 ];
 
+// Get mock users from localStorage or use defaults
+const getMockUsers = () => {
+  try {
+    const stored = localStorage.getItem(MOCK_USERS_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (error) {
+    console.error('Error loading mock users:', error);
+  }
+  return defaultMockUsers;
+};
+
+// Save mock users to localStorage
+const saveMockUsers = (users: any[]) => {
+  try {
+    localStorage.setItem(MOCK_USERS_KEY, JSON.stringify(users));
+  } catch (error) {
+    console.error('Error saving mock users:', error);
+  }
+};
+
+// Initialize mock users in localStorage if not exists
+const initializeMockUsers = () => {
+  const stored = localStorage.getItem(MOCK_USERS_KEY);
+  if (!stored) {
+    saveMockUsers(defaultMockUsers);
+  }
+};
+
 // Initialize and migrate users on first load
 export const initializeSupabaseAuth = async (): Promise<void> => {
   if (!isSupabaseConfigured) {
     console.log('[SupabaseAuth] Supabase not configured, using mock authentication');
+    initializeMockUsers();
     return;
   }
 
@@ -87,7 +119,8 @@ export const loginUser = async (email: string, password: string): Promise<{ succ
   if (!isSupabaseConfigured) {
     console.log('[SupabaseAuth] Using mock authentication');
     
-    const mockUser = mockUsers.find(u => u.email === email && u.password === password);
+    const mockUsers = getMockUsers();
+    const mockUser = mockUsers.find((u: any) => u.email === email && u.password === password);
     console.log('[SupabaseAuth] Found mock user:', mockUser ? 'YES' : 'NO');
     
     if (!mockUser) {
@@ -184,6 +217,27 @@ export const logoutUser = (): void => {
   localStorage.removeItem(CURRENT_USER_KEY);
 };
 
+// Generate a random password
+const generateRandomPassword = (): string => {
+  const length = 12;
+  const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+  let password = "";
+  
+  // Ensure at least one of each type
+  password += "ABCDEFGHIJKLMNOPQRSTUVWXYZ"[Math.floor(Math.random() * 26)]; // uppercase
+  password += "abcdefghijklmnopqrstuvwxyz"[Math.floor(Math.random() * 26)]; // lowercase
+  password += "0123456789"[Math.floor(Math.random() * 10)]; // number
+  password += "!@#$%^&*"[Math.floor(Math.random() * 8)]; // special
+  
+  // Fill the rest
+  for (let i = 4; i < length; i++) {
+    password += charset[Math.floor(Math.random() * charset.length)];
+  }
+  
+  // Shuffle the password
+  return password.split('').sort(() => Math.random() - 0.5).join('');
+};
+
 // Create new user (admin only)
 export const createUser = async (
   email: string, 
@@ -192,9 +246,49 @@ export const createUser = async (
   currentUserId: string
 ): Promise<{ success: boolean; user?: any; temporaryPassword?: string; error?: string }> => {
   if (!isSupabaseConfigured) {
+    // Mock user creation
+    console.log('[SupabaseAuth] Creating mock user:', { email, name, role });
+    
+    const mockUsers = getMockUsers();
+    
+    // Check if user already exists
+    const existingUser = mockUsers.find((u: any) => u.email === email);
+    if (existingUser) {
+      return { 
+        success: false, 
+        error: 'משתמש עם כתובת מייל זו כבר קיים' 
+      };
+    }
+    
+    // Generate new user ID
+    const newId = String(mockUsers.length + 1);
+    const temporaryPassword = generateRandomPassword();
+    
+    const newUser = {
+      id: newId,
+      email,
+      password: temporaryPassword,
+      name,
+      role,
+      isAdmin: role === 'מנהל מערכת'
+    };
+    
+    // Add to mock users
+    const updatedUsers = [...mockUsers, newUser];
+    saveMockUsers(updatedUsers);
+    
+    console.log('[SupabaseAuth] Mock user created successfully:', newUser);
+    
     return { 
-      success: false, 
-      error: 'יצירת משתמשים זמינה רק עם Supabase' 
+      success: true, 
+      user: {
+        id: newUser.id,
+        email: newUser.email,
+        name: newUser.name,
+        role: newUser.role,
+        isAdmin: newUser.isAdmin
+      },
+      temporaryPassword
     };
   }
 
@@ -274,13 +368,15 @@ export const changePassword = async (
 export const getUsers = async (): Promise<User[]> => {
   if (!isSupabaseConfigured) {
     // Return mock users for development
-    return mockUsers.map(user => ({
+    const mockUsers = getMockUsers();
+    return mockUsers.map((user: any) => ({
       id: user.id,
       email: user.email,
       name: user.name,
       role: user.role,
       isAdmin: user.isAdmin,
-      lastLogin: new Date()
+      lastLogin: new Date(),
+      active: true
     }));
   }
 
@@ -350,4 +446,6 @@ export const getAuditLog = async (limit?: number): Promise<AuditLogEntry[]> => {
 // Initialize on import (only if configured)
 if (isSupabaseConfigured) {
   initializeSupabaseAuth();
+} else {
+  initializeMockUsers();
 }

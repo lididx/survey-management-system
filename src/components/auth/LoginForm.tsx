@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -98,25 +97,25 @@ const LoginForm = () => {
     <>
       <div className="mb-4 flex flex-wrap gap-2 justify-center">
         <Badge variant="outline" className="p-2 cursor-pointer" onClick={() => {
-          form.setValue("email", "lidor@example.com");
+          form.setValue("email", "lidorn@citadel.co.il");
           form.setValue("password", "password123");
         }}>
           לידור (בודק)
         </Badge>
         <Badge variant="outline" className="p-2 cursor-pointer" onClick={() => {
-          form.setValue("email", "moran@example.com");
+          form.setValue("email", "moran@citadel.co.il");
           form.setValue("password", "password123");
         }}>
           מורן (בודק)
         </Badge>
         <Badge variant="outline" className="p-2 cursor-pointer" onClick={() => {
-          form.setValue("email", "chen@example.com");
+          form.setValue("email", "chen@citadel.co.il");
           form.setValue("password", "password123");
         }}>
           חן (מנהלת)
         </Badge>
         <Badge variant="outline" className="p-2 cursor-pointer bg-blue-50" onClick={() => {
-          form.setValue("email", "admin@system.com");
+          form.setValue("email", "Citadministrator@system.co.il");
           form.setValue("password", "Aa123456!");
         }}>
           מנהל מערכת
