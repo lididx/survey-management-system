@@ -32,6 +32,8 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { addToArchive, removeFromArchive } from "@/utils/archiveManager";
+import { getStoredAudits, saveAuditsToStorage } from "@/utils/auditStorage";
+import { getCurrentUser } from "@/utils/supabaseAuth";
 
 interface AuditsTableProps {
   audits: Audit[];
@@ -43,6 +45,7 @@ interface AuditsTableProps {
   onEmailClick: (audit: Audit) => void;
   onStatusChange: (audit: Audit, newStatus: StatusType) => void;
   isArchive?: boolean;
+  onDataChange?: () => void;
 }
 
 const statusOptions: StatusType[] = [
@@ -74,7 +77,8 @@ export const AuditsTable = ({
   onDeleteAudit,
   onEmailClick,
   onStatusChange,
-  isArchive = false
+  isArchive = false,
+  onDataChange
 }: AuditsTableProps) => {
   const [expandedAuditId, setExpandedAuditId] = useState<string | null>(null);
 
@@ -125,8 +129,10 @@ export const AuditsTable = ({
     const success = addToArchive(audit.id);
     if (success) {
       toast.success("הסקר הועבר לארכיון");
-      // Force page refresh to update the view
-      window.location.reload();
+      // Call parent refresh without page reload
+      if (onDataChange) {
+        onDataChange();
+      }
     } else {
       toast.error("שגיאה בהעברת הסקר לארכיון");
     }
@@ -142,10 +148,63 @@ export const AuditsTable = ({
     const success = removeFromArchive(audit.id);
     if (success) {
       toast.success("הסקר הוחזר לרשימת הסקרים הפעילים");
-      // Force page refresh to update the view
-      window.location.reload();
+      // Call parent refresh without page reload
+      if (onDataChange) {
+        onDataChange();
+      }
     } else {
       toast.error("שגיאה בהחזרת הסקר");
+    }
+  };
+
+  const handleStatusChangeLocal = (audit: Audit, newStatus: StatusType) => {
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+      toast.error("נדרש להיות מחובר כדי לעדכן סטטוס");
+      return;
+    }
+
+    if (!canEdit(audit.ownerId) && currentUser.role !== "מנהלת") {
+      toast.error("אין לך הרשאה לעדכן סקר זה");
+      return;
+    }
+
+    const statusChange = {
+      id: crypto.randomUUID(),
+      timestamp: new Date(),
+      oldStatus: audit.currentStatus,
+      newStatus: newStatus,
+      oldDate: null,
+      newDate: null,
+      reason: `עדכון סטטוס ל-${newStatus}`,
+      modifiedBy: currentUser.name
+    };
+
+    const updatedAudit = {
+      ...audit,
+      currentStatus: newStatus,
+      statusLog: [statusChange, ...audit.statusLog]
+    };
+
+    // עדכון הסקר באחסון
+    const auditOwnerEmail = audit.ownerId;
+    const userAudits = getStoredAudits(auditOwnerEmail);
+    const updatedUserAudits = userAudits.map(a => a.id === audit.id ? updatedAudit : a);
+    
+    if (saveAuditsToStorage(auditOwnerEmail, updatedUserAudits)) {
+      // גם לעדכן באחסון הגלובלי
+      const globalAudits = getStoredAudits(null);
+      const updatedGlobalAudits = globalAudits.map(a => a.id === audit.id ? updatedAudit : a);
+      saveAuditsToStorage(null, updatedGlobalAudits);
+      
+      toast.success(`סטטוס הסקר עודכן ל-${newStatus}`);
+      
+      // Call parent refresh without page reload
+      if (onDataChange) {
+        onDataChange();
+      }
+    } else {
+      toast.error("שגיאה בעדכון סטטוס הסקר");
     }
   };
   
@@ -172,7 +231,7 @@ export const AuditsTable = ({
           value={status}
           onValueChange={(value: StatusType) => {
             if (value === "הסתיים" || value === "בבקרה") {
-              onStatusChange(audit, value);
+              handleStatusChangeLocal(audit, value);
             } else {
               toast.error("מנהלים יכולים לעדכן רק לסטטוס 'הסתיים' או 'בבקרה'");
             }
@@ -193,7 +252,7 @@ export const AuditsTable = ({
     return (
       <Select 
         value={status}
-        onValueChange={(value: StatusType) => onStatusChange(audit, value)}
+        onValueChange={(value: StatusType) => handleStatusChangeLocal(audit, value)}
         disabled={!canEdit(audit.ownerId)}
       >
         <SelectTrigger className="w-full px-2 py-1 h-auto bg-transparent border-0 hover:bg-gray-100">

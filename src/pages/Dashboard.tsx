@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -229,11 +228,6 @@ const Dashboard = () => {
       
       refreshAudits();
       toast.success(`סטטוס הסקר עודכן ל-${newStatus}`);
-      
-      // רענון הדף לעדכון התצוגה
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
     } else {
       toast.error("שגיאה בעדכון סטטוס הסקר");
     }
@@ -245,21 +239,6 @@ const Dashboard = () => {
 
   const handleNavigateToAdmin = () => {
     navigate("/admin");
-  };
-
-  const handleNotificationClick = (auditId: string) => {
-    // Find the audit and scroll to it in the table
-    setTimeout(() => {
-      const auditElement = document.querySelector(`[data-audit-id="${auditId}"]`);
-      if (auditElement) {
-        auditElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        // Add a temporary highlight effect
-        auditElement.classList.add('bg-yellow-100', 'transition-colors', 'duration-3000');
-        setTimeout(() => {
-          auditElement.classList.remove('bg-yellow-100');
-        }, 3000);
-      }
-    }, 100);
   };
 
   const handleEmailClick = (audit: Audit) => {
@@ -285,7 +264,6 @@ const Dashboard = () => {
       <DashboardHeader
         onNavigateToArchive={handleNavigateToArchive}
         onNavigateToAdmin={currentUser?.isAdmin ? handleNavigateToAdmin : undefined}
-        onNotificationClick={handleNotificationClick}
       />
       
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
