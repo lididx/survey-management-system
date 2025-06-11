@@ -32,8 +32,8 @@ const ArchivePage = () => {
   const loadAudits = useCallback(async () => {
     console.log("[Archive] loadAudits called, currentUser:", currentUser);
     
-    if (!currentUser) {
-      console.log("[Archive] No current user, returning");
+    if (!currentUser?.id) {
+      console.log("[Archive] No current user ID, returning");
       setLoading(false);
       return;
     }
@@ -43,8 +43,8 @@ const ArchivePage = () => {
       setLoadingError(null);
       console.log("[Archive] Starting to load audits...");
       
-      // Load audits from database - now only needs user ID from auth
-      const allAudits = await getAudits();
+      // Load audits from database - pass user ID from auth
+      const allAudits = await getAudits(currentUser.id);
       console.log("[Archive] Loaded audits:", allAudits.length);
       
       setAudits(allAudits);
@@ -57,7 +57,7 @@ const ArchivePage = () => {
       setLoading(false);
       console.log("[Archive] Loading completed");
     }
-  }, [currentUser?.email, currentUser?.role]);
+  }, [currentUser?.id]);
 
   useEffect(() => {
     console.log("[Archive] useEffect triggered");

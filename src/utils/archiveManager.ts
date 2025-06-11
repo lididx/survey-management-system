@@ -1,4 +1,3 @@
-
 import { Audit, StatusType } from "@/types/types";
 import { toast } from "sonner";
 import { 
@@ -7,6 +6,7 @@ import {
   deleteAuditById, 
   updateAuditStatusInDb 
 } from "./supabase";
+import { getCurrentUser } from "./supabaseAuth";
 
 // Check if audit is in archive view (helper function)
 export const isAuditInArchiveView = (audit: Audit): boolean => {
@@ -118,7 +118,13 @@ export const loadArchivedAudits = async (): Promise<Audit[]> => {
   console.log(`[loadArchivedAudits] Loading archived audits from Supabase`);
   
   try {
-    const audits = await getAudits();
+    const currentUser = getCurrentUser();
+    if (!currentUser?.id) {
+      console.error("[loadArchivedAudits] No current user ID");
+      return [];
+    }
+
+    const audits = await getAudits(currentUser.id);
     console.log(`[loadArchivedAudits] Loaded ${audits.length} audits`);
     return audits;
   } catch (error) {
