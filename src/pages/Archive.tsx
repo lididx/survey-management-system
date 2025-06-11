@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -32,8 +33,8 @@ const ArchivePage = () => {
   const loadAudits = useCallback(async () => {
     console.log("[Archive] loadAudits called, currentUser:", currentUser);
     
-    if (!currentUser?.id) {
-      console.log("[Archive] No current user ID, returning");
+    if (!currentUser) {
+      console.log("[Archive] No current user, returning");
       setLoading(false);
       return;
     }
@@ -43,8 +44,8 @@ const ArchivePage = () => {
       setLoadingError(null);
       console.log("[Archive] Starting to load audits...");
       
-      // Load audits from database - pass user ID from auth
-      const allAudits = await getAudits(currentUser.id);
+      // Load audits from database - pass full user object
+      const allAudits = await getAudits(currentUser);
       console.log("[Archive] Loaded audits:", allAudits.length);
       
       setAudits(allAudits);
@@ -57,7 +58,7 @@ const ArchivePage = () => {
       setLoading(false);
       console.log("[Archive] Loading completed");
     }
-  }, [currentUser?.id]);
+  }, [currentUser]);
 
   useEffect(() => {
     console.log("[Archive] useEffect triggered");

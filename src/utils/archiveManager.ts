@@ -1,3 +1,4 @@
+
 import { Audit, StatusType } from "@/types/types";
 import { toast } from "sonner";
 import { 
@@ -119,12 +120,12 @@ export const loadArchivedAudits = async (): Promise<Audit[]> => {
   
   try {
     const currentUser = getCurrentUser();
-    if (!currentUser?.id) {
-      console.error("[loadArchivedAudits] No current user ID");
+    if (!currentUser) {
+      console.error("[loadArchivedAudits] No current user");
       return [];
     }
 
-    const audits = await getAudits(currentUser.id);
+    const audits = await getAudits(currentUser);
     console.log(`[loadArchivedAudits] Loaded ${audits.length} audits`);
     return audits;
   } catch (error) {
