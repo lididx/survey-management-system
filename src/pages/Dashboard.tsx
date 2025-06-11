@@ -1,3 +1,4 @@
+
 import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -275,7 +276,7 @@ const Dashboard = () => {
   }
 
   // סינון הסקרים - הסרת סקרים שבארכיון מהעמוד הראשי
-  const activeAudits = filteredAudits.filter(audit => 
+  const activeAudits = audits.filter(audit => 
     !isAuditInArchiveView(audit.id, audit.currentStatus)
   );
 
@@ -332,7 +333,7 @@ const Dashboard = () => {
                 <CardTitle>דשבורד סטטיסטיקות</CardTitle>
               </CardHeader>
               <CardContent>
-                <StatisticsChart audits={filteredAudits} />
+                <StatisticsChart audits={audits} />
               </CardContent>
             </Card>
           )}
@@ -389,5 +390,3 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
-
-</initial_code>
