@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -64,11 +63,10 @@ const ArchivePage = () => {
     loadAudits();
   }, [loadAudits]);
 
-  // Optimized filtering - memoize the filtering logic
-  const archivedAudits = audits.filter(audit => {
-    const isInArchive = isAuditInArchiveView(audit.id, audit.currentStatus);
-    return isInArchive;
-  });
+  // Filter out archived audits from main dashboard
+  const archivedAudits = audits.filter(audit => 
+    isAuditInArchiveView(audit)
+  );
   
   console.log("[Archive] Total audits:", audits.length, "Archived:", archivedAudits.length);
   

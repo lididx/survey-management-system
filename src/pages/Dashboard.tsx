@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -126,7 +125,7 @@ const Dashboard = () => {
 
   // Filter out archived audits from main dashboard
   const activeAudits = filteredAudits.filter(audit => 
-    !isAuditInArchiveView(audit.id, audit.currentStatus)
+    !isAuditInArchiveView(audit)
   );
 
   console.log("[Dashboard] Active audits to display:", activeAudits.length);
