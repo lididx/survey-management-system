@@ -15,6 +15,8 @@ import { getAudits, deleteAuditById, updateAuditStatusInDb } from "@/utils/supab
 import { getCurrentUser } from "@/utils/supabaseAuth";
 
 const ArchivePage = () => {
+  console.log("[Archive] Component rendering...");
+  
   const { user } = useAuthManager();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
@@ -22,32 +24,50 @@ const ArchivePage = () => {
   const [loading, setLoading] = useState(true);
   const currentUser = getCurrentUser();
   
+  console.log("[Archive] Current user:", currentUser);
+  
   const { canDelete, canEdit } = useAuditPermissions(currentUser);
 
   const loadAudits = useCallback(async () => {
-    if (!currentUser) return;
+    console.log("[Archive] loadAudits called, currentUser:", currentUser);
+    
+    if (!currentUser) {
+      console.log("[Archive] No current user, returning");
+      setLoading(false);
+      return;
+    }
     
     try {
       setLoading(true);
+      console.log("[Archive] Starting to load audits...");
+      
       // Load audits from database based on user permissions
       const allAudits = await getAudits(currentUser.email, currentUser.role);
+      console.log("[Archive] Loaded audits:", allAudits.length);
+      
       setAudits(allAudits);
     } catch (error) {
       console.error("[Archive] Error loading audits:", error);
       toast.error("שגיאה בטעינת נתוני הסקרים");
     } finally {
       setLoading(false);
+      console.log("[Archive] Loading completed");
     }
   }, [currentUser]);
 
   useEffect(() => {
+    console.log("[Archive] useEffect triggered");
     loadAudits();
   }, [loadAudits]);
 
   // Filter audits for archive - based on new logic
-  const archivedAudits = audits.filter(audit => 
-    isAuditInArchiveView(audit.id, audit.currentStatus)
-  );
+  const archivedAudits = audits.filter(audit => {
+    const isInArchive = isAuditInArchiveView(audit.id, audit.currentStatus);
+    console.log(`[Archive] Audit ${audit.id} (${audit.name}): isInArchive = ${isInArchive}`);
+    return isInArchive;
+  });
+  
+  console.log("[Archive] Total audits:", audits.length, "Archived:", archivedAudits.length);
   
   const displayedAudits = searchQuery
     ? archivedAudits.filter(audit => 
@@ -97,6 +117,8 @@ const ArchivePage = () => {
   };
 
   const handleStatusChange = async (audit: Audit, newStatus: StatusType) => {
+    console.log(`[Archive] Changing status of audit ${audit.id} to ${newStatus}`);
+    
     try {
       if (!currentUser) {
         toast.error("נדרש להיות מחובר כדי לעדכן סטטוס");
@@ -141,12 +163,17 @@ const ArchivePage = () => {
   };
 
   const handleNavigateToArchive = () => {
+    console.log("[Archive] handleNavigateToArchive called - already on archive page");
     // We're already on archive page
   };
 
-  if (!currentUser) return null;
+  if (!currentUser) {
+    console.log("[Archive] No current user, returning null");
+    return null;
+  }
 
   if (loading) {
+    console.log("[Archive] Still loading...");
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center" dir="rtl">
         <div className="text-center">
@@ -156,6 +183,8 @@ const ArchivePage = () => {
       </div>
     );
   }
+
+  console.log("[Archive] Rendering archive page with", displayedAudits.length, "audits");
 
   return (
     <div className="min-h-screen bg-gray-100" dir="rtl">
