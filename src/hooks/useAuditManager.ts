@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Audit, User, StatusType } from '@/types/types';
 import { toast } from 'sonner';
@@ -17,7 +16,6 @@ import {
 } from '@/utils/auditStorage';
 
 export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
-  // Initialize audits from localStorage (or fallback to initialAudits)
   const [audits, setAudits] = useState<Audit[]>(initialAudits);
   const [loading, setLoading] = useState(true);
   const [currentAudit, setCurrentAudit] = useState<Audit | null>(null);
@@ -38,17 +36,14 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
       try {
         setLoading(true);
         
-        // Check if Supabase is configured
         if (!isSupabaseConfigured()) {
           console.log("[useAuditManager] Supabase is not configured, using localStorage data");
           
-          // Get all audits from localStorage
           const storedAudits = getStoredAudits(null);
           
           if (storedAudits.length > 0) {
             setAudits(storedAudits);
           } else {
-            // Initialize with sample data if no audits exist
             saveAuditsToStorage(null, sampleAudits);
             setAudits(sampleAudits);
           }
@@ -57,7 +52,6 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
           return;
         }
 
-        // If Supabase is configured, get audits from Supabase based on role
         const supabaseAudits = await getAudits(user.email, user.role);
         console.log(`[useAuditManager] Loaded ${supabaseAudits.length} audits from Supabase`);
         
@@ -66,7 +60,6 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
         console.error("[useAuditManager] Error loading audits:", error);
         toast.error("שגיאה בטעינת נתוני הסקרים");
         
-        // במקרה של שגיאה, ננסה להשתמש בנתונים מקומיים
         const storedAudits = getStoredAudits(null);
         setAudits(storedAudits.length > 0 ? storedAudits : sampleAudits);
       } finally {
@@ -77,11 +70,10 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
     loadAudits();
   }, [user, initialAudits]);
 
-  // Filter audits based on user role
   const filteredAudits = user ? (
     user.role === "מנהלת" 
-      ? audits // מנהלות רואות את כל הסקרים
-      : audits.filter(audit => audit.ownerId === user.email) // בודקים רואים רק את הסקרים שלהם
+      ? audits
+      : audits.filter(audit => audit.ownerId === user.email)
   ) : [];
 
   const handleCreateAudit = () => {
@@ -113,16 +105,12 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
       if (isSupabaseConfigured()) {
         success = await deleteAuditById(id);
       } else {
-        // Fallback to local deletion
         const updatedAudits = audits.filter(audit => audit.id !== id);
         setAudits(updatedAudits);
-        
-        // Save to localStorage
         success = saveAuditsToStorage(null, updatedAudits);
       }
       
       if (success) {
-        // עדכון הסקרים המקומיים
         setAudits(prevAudits => prevAudits.filter(audit => audit.id !== id));
         toast.success("סקר נמחק בהצלחה");
       }
@@ -140,10 +128,7 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
       }
       
       const canEdit = (auditOwnerId: string) => {
-        // מנהלות יכולות לערוך כל רשומה
         if (user.role === "מנהלת") return true;
-        
-        // בודקים יכולים לערוך רק את הסקרים שלהם
         return user.role === "בודק" && auditOwnerId === user.email;
       };
       
@@ -158,7 +143,6 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
       if (isSupabaseConfigured()) {
         success = await updateAuditStatusInDb(audit.id, newStatus, reason, user.name);
       } else {
-        // Fallback to local update
         const now = new Date();
         const newStatusLog = {
           id: crypto.randomUUID(),
@@ -183,8 +167,6 @@ export const useAuditManager = (initialAudits: Audit[], user: User | null) => {
         });
         
         setAudits(updatedAudits);
-        
-        // Save to localStorage
         success = saveAuditsToStorage(null, updatedAudits);
       }
       

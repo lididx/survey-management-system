@@ -18,7 +18,8 @@ import {
   UserCircle,
   MessageCircle,
   Archive,
-  ArchiveRestore
+  ArchiveRestore,
+  Phone
 } from "lucide-react";
 import { Audit, StatusType } from "@/types/types";
 import { StatusLogView } from "@/components/StatusLogView";
@@ -53,7 +54,6 @@ const statusOptions: StatusType[] = [
   "הסתיים"
 ];
 
-// Status color mapping
 const statusColorMap: Record<StatusType, { bg: string, text: string, border?: string }> = {
   "התקבל": { bg: "#cce5ff", text: "#004085", border: "#b8daff" },
   "נשלח מייל תיאום למנהל מערכת": { bg: "#fff3cd", text: "#856404", border: "#ffeeba" },
@@ -91,11 +91,18 @@ export const AuditsTable = ({
   };
 
   const handleWhatsAppClick = (phone: string, contactName: string) => {
-    // Clean the phone number and format it for WhatsApp
     const cleanPhone = phone.replace(/[^\d]/g, '');
     const whatsappUrl = `https://wa.me/972${cleanPhone.startsWith('0') ? cleanPhone.substring(1) : cleanPhone}`;
     window.open(whatsappUrl, '_blank');
     toast.success(`נפתח WhatsApp עבור ${contactName}`);
+  };
+
+  const handlePhoneClick = (phone: string, contactName: string) => {
+    const cleanPhone = phone.replace(/[^\d]/g, '');
+    const formattedPhone = cleanPhone.startsWith('0') ? cleanPhone : `0${cleanPhone}`;
+    const telUrl = `tel:${formattedPhone}`;
+    window.location.href = telUrl;
+    toast.success(`נפתח חייגן עבור ${contactName}`);
   };
 
   const handleArchiveAudit = (audit: Audit) => {
@@ -104,7 +111,6 @@ export const AuditsTable = ({
       return;
     }
     onStatusChange(audit, "הסתיים");
-    toast.success(`הסקר "${audit.name}" הועבר לארכיון`);
   };
 
   const handleRestoreAudit = (audit: Audit) => {
@@ -113,13 +119,11 @@ export const AuditsTable = ({
       return;
     }
     onStatusChange(audit, "בבקרה");
-    toast.success(`הסקר "${audit.name}" הוחזר לרשימת הסקרים הפעילים`);
   };
   
   const getStatusBadge = (status: StatusType, audit: Audit) => {
     const colors = statusColorMap[status];
     
-    // Custom badge style based on status color
     const customBadgeStyle = {
       backgroundColor: colors.bg,
       color: colors.text,
@@ -133,7 +137,6 @@ export const AuditsTable = ({
       justifyContent: 'center'
     };
 
-    // In archive mode - special options for returning to active audits
     if (isArchive) {
       return (
         <Select 
@@ -154,7 +157,6 @@ export const AuditsTable = ({
       );
     }
 
-    // Management users can only update to specific statuses
     if (userRole === "מנהלת" && !canEdit(audit.ownerId)) {
       return (
         <Select 
@@ -179,7 +181,6 @@ export const AuditsTable = ({
       );
     }
     
-    // Regular users can update to any status if they have edit permissions
     return (
       <Select 
         value={status}
@@ -241,14 +242,26 @@ export const AuditsTable = ({
                           <div key={index} className="flex items-center justify-center gap-2">
                             <span className="text-sm">{contact.fullName}</span>
                             {contact.phone && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleWhatsAppClick(contact.phone, contact.fullName)}
-                                className="h-6 w-6 p-0"
-                              >
-                                <MessageCircle className="h-3 w-3 text-green-600" />
-                              </Button>
+                              <div className="flex gap-1">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handlePhoneClick(contact.phone, contact.fullName)}
+                                  className="h-6 w-6 p-0"
+                                  title="חייג"
+                                >
+                                  <Phone className="h-3 w-3 text-blue-600" />
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleWhatsAppClick(contact.phone, contact.fullName)}
+                                  className="h-6 w-6 p-0"
+                                  title="WhatsApp"
+                                >
+                                  <MessageCircle className="h-3 w-3 text-green-600" />
+                                </Button>
+                              </div>
                             )}
                           </div>
                         ))
@@ -283,7 +296,6 @@ export const AuditsTable = ({
                           <ChevronDown className="h-4 w-4" />
                         }
                       </Button>
-                      {/* Archive/Restore Button */}
                       {isArchive ? (
                         <Button 
                           variant="outline" 
@@ -305,7 +317,6 @@ export const AuditsTable = ({
                           <Archive className="h-4 w-4" />
                         </Button>
                       )}
-                      {/* Delete button - only show in archive or for auditor's own audits */}
                       {(isArchive || canDelete(audit.ownerId)) && (
                         <Button 
                           variant="destructive" 

@@ -28,12 +28,10 @@ const ArchivePage = () => {
   
   const { canDelete, canEdit } = useAuditPermissions(user);
 
-  // Only show completed audits
   const archivedAudits = filteredAudits.filter(
     audit => audit.currentStatus === "הסתיים"
   );
   
-  // Filter audits based on search query
   const displayedAudits = searchQuery
     ? archivedAudits.filter(audit => 
         audit.name.includes(searchQuery) || 
@@ -56,18 +54,41 @@ const ArchivePage = () => {
     navigate("/dashboard");
   };
 
+  const handleNavigateToArchive = () => {
+    // We're already on archive page
+  };
+
+  const handleNotificationClick = (auditId: string) => {
+    setTimeout(() => {
+      const auditElement = document.querySelector(`[data-audit-id="${auditId}"]`);
+      if (auditElement) {
+        auditElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        auditElement.classList.add('bg-yellow-100', 'transition-colors', 'duration-3000');
+        setTimeout(() => {
+          auditElement.classList.remove('bg-yellow-100');
+        }, 3000);
+      }
+    }, 100);
+  };
+
   if (!user) return null;
 
   return (
     <div className="min-h-screen bg-gray-100" dir="rtl">
       <DashboardHeader
-        onNavigateToArchive={() => {}}
-        onNavigateToAdmin={() => {}}
-        onNotificationClick={() => {}}
+        onNavigateToArchive={handleNavigateToArchive}
+        onNotificationClick={handleNotificationClick}
       />
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex justify-between items-center flex-wrap gap-4 mb-6">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Archive className="h-5 w-5" />
+              <h2 className="text-xl font-semibold">ארכיון סקרים שהסתיימו</h2>
+            </div>
+          </div>
+          
           <div className="flex items-center gap-4">
             <Button
               variant="outline"
@@ -77,13 +98,6 @@ const ArchivePage = () => {
               <Home className="h-4 w-4" />
               עמוד הבית
             </Button>
-            <div className="flex items-center gap-2">
-              <Archive className="h-5 w-5" />
-              <h2 className="text-xl font-semibold">ארכיון סקרים שהסתיימו</h2>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-4">
             <div className="relative">
               <Search className="absolute right-3 top-2.5 h-4 w-4 text-gray-500" />
               <Input

@@ -51,6 +51,11 @@ export const NotificationsSidebar = ({
     }
   };
 
+  const handleDeleteClick = (e: React.MouseEvent, notificationId: string) => {
+    e.stopPropagation();
+    onDeleteNotification(notificationId);
+  };
+
   return (
     <>
       {/* Overlay */}
@@ -119,10 +124,7 @@ export const NotificationsSidebar = ({
                     variant="ghost"
                     size="sm"
                     className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDeleteNotification(notification.id);
-                    }}
+                    onClick={(e) => handleDeleteClick(e, notification.id)}
                   >
                     <Trash2 className="h-3 w-3" />
                   </Button>
