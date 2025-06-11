@@ -1,4 +1,3 @@
-
 import { Audit } from '@/types/types';
 import { toast } from 'sonner';
 
@@ -57,7 +56,7 @@ export const sampleAudits: Audit[] = [
         modifiedBy: "לידור"
       }
     ],
-    ownerId: "lidorn@citadel.com",
+    ownerId: "lidorn@citadel.co.il",
     ownerName: "לידור"
   },
   {
@@ -94,7 +93,7 @@ export const sampleAudits: Audit[] = [
         modifiedBy: "לידור"
       }
     ],
-    ownerId: "lidorn@citadel.com",
+    ownerId: "lidorn@citadel.co.il",
     ownerName: "לידור"
   },
   {
@@ -257,7 +256,7 @@ export const getStoredAudits = (userEmail: string | null): Audit[] => {
     
     // למנהלת - טען את כל הסקרים
     const allUsersAudits: Audit[] = [];
-    const allUsers = ['lidorn@citadel.com', 'moran@citadel.co.il'];
+    const allUsers = ['lidorn@citadel.co.il', 'moran@citadel.co.il'];
     
     allUsers.forEach(user => {
       const userAudits = getStoredAudits(user);

@@ -24,7 +24,7 @@ interface SupabaseUser extends User {
 const mockUsers = [
   {
     id: '1',
-    email: 'lidorn@citadel.com',
+    email: 'lidorn@citadel.co.il',
     password: 'password123',
     name: 'לידור',
     role: 'בודק' as UserRole,
