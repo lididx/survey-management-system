@@ -9,14 +9,14 @@ interface DashboardHeaderProps {
 }
 
 const DashboardHeader = ({ onNavigateToArchive, onNavigateToAdmin }: DashboardHeaderProps) => {
-  const { user, logout } = useAuthManager();
+  const { user, handleLogout } = useAuthManager();
 
   console.log("[DashboardHeader] Current user:", user);
 
-  const handleLogout = async () => {
+  const handleLogoutClick = async () => {
     console.log("[DashboardHeader] Logging out user");
     try {
-      await logout();
+      await handleLogout();
     } catch (error) {
       console.error("[DashboardHeader] Logout error:", error);
     }
@@ -82,7 +82,7 @@ const DashboardHeader = ({ onNavigateToArchive, onNavigateToAdmin }: DashboardHe
             <Button
               variant="outline"
               size="sm"
-              onClick={handleLogout}
+              onClick={handleLogoutClick}
               className="flex items-center gap-2"
             >
               <LogOut className="h-4 w-4" />
