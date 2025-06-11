@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { addToArchive, removeFromArchive } from "@/utils/archiveManager";
-import { getStoredAudits, saveAuditsToStorage } from "@/utils/auditStorage";
+import { updateExistingAudit } from "@/utils/supabase";
 import { getCurrentUser } from "@/utils/supabaseAuth";
 
 interface AuditsTableProps {
@@ -90,9 +90,20 @@ export const AuditsTable = ({
     }
   };
 
-  const formatDate = (date: Date) => {
+  const formatDate = (date: Date | null) => {
     if (!date) return "";
     return new Date(date).toLocaleDateString("he-IL");
+  };
+
+  // Get the appropriate date to display - prioritize scheduledDate, then plannedMeetingDate
+  const getDisplayDate = (audit: Audit) => {
+    if (audit.scheduledDate) {
+      return formatDate(audit.scheduledDate);
+    }
+    if (audit.plannedMeetingDate) {
+      return formatDate(audit.plannedMeetingDate);
+    }
+    return "לא נקבע";
   };
 
   const handleWhatsAppClick = (phone: string, contactName: string) => {
@@ -119,40 +130,78 @@ export const AuditsTable = ({
     toast.success(`נפתח חייגן עבור ${contactName}`);
   };
 
-  const handleArchiveAudit = (audit: Audit) => {
+  const handleArchiveAudit = async (audit: Audit) => {
     if (!canEdit(audit.ownerId)) {
       toast.error("אין לך הרשאה לארכב סקר זה");
       return;
     }
     
-    // Add to archive without changing status
-    const success = addToArchive(audit.id);
-    if (success) {
-      toast.success("הסקר הועבר לארכיון");
-      // Call parent refresh without page reload
-      if (onDataChange) {
-        onDataChange();
+    try {
+      // Add to archive without changing status
+      const success = addToArchive(audit.id);
+      if (success) {
+        toast.success("הסקר הועבר לארכיון");
+        // Call parent refresh without page reload
+        if (onDataChange) {
+          onDataChange();
+        }
+      } else {
+        toast.error("שגיאה בהעברת הסקר לארכיון");
       }
-    } else {
+    } catch (error) {
+      console.error("[AuditsTable] Error archiving audit:", error);
       toast.error("שגיאה בהעברת הסקר לארכיון");
     }
   };
 
-  const handleRestoreAudit = (audit: Audit) => {
+  const handleRestoreAudit = async (audit: Audit) => {
     if (!canEdit(audit.ownerId)) {
       toast.error("אין לך הרשאה להחזיר סקר זה");
       return;
     }
     
-    // Remove from archive without changing status
-    const success = removeFromArchive(audit.id);
-    if (success) {
-      toast.success("הסקר הוחזר לרשימת הסקרים הפעילים");
-      // Call parent refresh without page reload
-      if (onDataChange) {
-        onDataChange();
+    try {
+      // Remove from archive list
+      const archiveRemoved = removeFromArchive(audit.id);
+      
+      // If the audit status is "הסתיים", we need to change it to make it active
+      let statusUpdated = true;
+      if (audit.currentStatus === "הסתיים") {
+        // Update status to "בבקרה" to make it active again
+        const currentUser = getCurrentUser();
+        if (currentUser) {
+          // Create updated audit with new status
+          const updatedAudit = {
+            ...audit,
+            currentStatus: "בבקרה" as StatusType,
+            statusLog: [{
+              id: crypto.randomUUID(),
+              timestamp: new Date(),
+              oldStatus: audit.currentStatus,
+              newStatus: "בבקרה" as StatusType,
+              oldDate: null,
+              newDate: null,
+              reason: "החזרה מהארכיון",
+              modifiedBy: currentUser.name
+            }, ...audit.statusLog]
+          };
+          
+          // Update in database
+          await updateExistingAudit(audit.id, updatedAudit, currentUser.name);
+        }
       }
-    } else {
+      
+      if (archiveRemoved && statusUpdated) {
+        toast.success("הסקר הוחזר לרשימת הסקרים הפעילים");
+        // Call parent refresh without page reload
+        if (onDataChange) {
+          onDataChange();
+        }
+      } else {
+        toast.error("שגיאה בהחזרת הסקר");
+      }
+    } catch (error) {
+      console.error("[AuditsTable] Error restoring audit:", error);
       toast.error("שגיאה בהחזרת הסקר");
     }
   };
@@ -160,11 +209,6 @@ export const AuditsTable = ({
   const handleStatusChangeLocal = (audit: Audit, newStatus: StatusType) => {
     // Call the parent handler for status change
     onStatusChange(audit, newStatus);
-    
-    // Call parent refresh if available
-    if (onDataChange) {
-      onDataChange();
-    }
   };
   
   const getStatusBadge = (status: StatusType, audit: Audit) => {
@@ -254,7 +298,7 @@ export const AuditsTable = ({
                   </TableCell>
                   <TableCell className="p-4 text-center">{audit.clientName || "לא צוין"}</TableCell>
                   <TableCell className="p-4 text-center">
-                    {audit.plannedMeetingDate ? formatDate(audit.plannedMeetingDate) : "לא נקבע"}
+                    {getDisplayDate(audit)}
                   </TableCell>
                   <TableCell className="p-4 text-center">
                     <div className="flex items-center justify-center gap-1">

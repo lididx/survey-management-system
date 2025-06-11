@@ -54,13 +54,20 @@ export const GroupedAuditsTable = ({
     return audits.filter(audit => audit.currentStatus === statusFilter);
   }, [audits, statusFilter]);
 
-  // Sort audits by date
+  // Sort audits by date - prioritize scheduledDate, then plannedMeetingDate
   const sortedAudits = useMemo(() => {
     if (dateSortOrder === "none") return filteredAudits;
     
     return [...filteredAudits].sort((a, b) => {
-      const dateA = a.plannedMeetingDate ? new Date(a.plannedMeetingDate).getTime() : 0;
-      const dateB = b.plannedMeetingDate ? new Date(b.plannedMeetingDate).getTime() : 0;
+      // Get the appropriate date for comparison
+      const getComparisonDate = (audit: Audit) => {
+        if (audit.scheduledDate) return new Date(audit.scheduledDate).getTime();
+        if (audit.plannedMeetingDate) return new Date(audit.plannedMeetingDate).getTime();
+        return 0;
+      };
+      
+      const dateA = getComparisonDate(a);
+      const dateB = getComparisonDate(b);
       
       if (dateSortOrder === "asc") {
         return dateA - dateB;

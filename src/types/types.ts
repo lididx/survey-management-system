@@ -41,7 +41,7 @@ export interface Audit {
   receivedDate: Date;
   plannedMeetingDate: Date | null;
   existingMeetingDate?: Date | null; // Optional pre-existing meeting date
-  scheduledDate?: Date | null; // New field for scheduled date
+  scheduledDate?: Date | null; // Scheduled date for the audit
   currentStatus: StatusType;
   statusLog: StatusChange[];
   ownerId: string;

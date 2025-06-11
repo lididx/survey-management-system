@@ -10,8 +10,8 @@ import { AuditsTable } from "@/components/dashboard/AuditsTable";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { useAuthManager } from "@/hooks/useAuthManager";
 import { useAuditPermissions } from "@/hooks/useAuditPermissions";
-import { isAuditInArchiveView } from "@/utils/archiveManager";
-import { getStoredAudits } from "@/utils/auditStorage";
+import { isAuditInArchiveView, removeFromArchive } from "@/utils/archiveManager";
+import { getAudits, deleteAuditById, updateAuditStatusInDb } from "@/utils/supabase";
 import { getCurrentUser } from "@/utils/supabaseAuth";
 
 const ArchivePage = () => {
@@ -19,22 +19,25 @@ const ArchivePage = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [audits, setAudits] = useState<Audit[]>([]);
+  const [loading, setLoading] = useState(true);
   const currentUser = getCurrentUser();
   
   const { canDelete, canEdit } = useAuditPermissions(currentUser);
 
-  const loadAudits = useCallback(() => {
+  const loadAudits = useCallback(async () => {
     if (!currentUser) return;
     
-    // Load audits based on user permissions
-    let allAudits: Audit[] = [];
-    if (currentUser.role === "מנהלת") {
-      allAudits = getStoredAudits(null);
-    } else {
-      allAudits = getStoredAudits(currentUser.email);
+    try {
+      setLoading(true);
+      // Load audits from database based on user permissions
+      const allAudits = await getAudits(currentUser.email, currentUser.role);
+      setAudits(allAudits);
+    } catch (error) {
+      console.error("[Archive] Error loading audits:", error);
+      toast.error("שגיאה בטעינת נתוני הסקרים");
+    } finally {
+      setLoading(false);
     }
-    
-    setAudits(allAudits);
   }, [currentUser]);
 
   useEffect(() => {
@@ -74,13 +77,66 @@ const ArchivePage = () => {
         return;
       }
 
-      // Here we would call the delete function
-      // For now, we'll refresh the data
-      loadAudits();
-      toast.success("הסקר נמחק בהצלחה מהארכיון");
+      // Delete from database
+      const success = await deleteAuditById(auditId);
+      
+      if (success) {
+        // Remove from archive list as well
+        removeFromArchive(auditId);
+        
+        // Reload audits from database
+        await loadAudits();
+        toast.success("הסקר נמחק בהצלחה מהארכיון");
+      } else {
+        toast.error("שגיאה במחיקת הסקר");
+      }
     } catch (error) {
       console.error("[Archive] Error deleting audit:", error);
       toast.error("שגיאה במחיקת הסקר");
+    }
+  };
+
+  const handleStatusChange = async (audit: Audit, newStatus: StatusType) => {
+    try {
+      if (!currentUser) {
+        toast.error("נדרש להיות מחובר כדי לעדכן סטטוס");
+        return;
+      }
+
+      // Allow managers to change status with limited options, or full access for owners
+      if (!canEdit(audit.ownerId) && currentUser.role !== "מנהלת") {
+        toast.error("אין לך הרשאה לעדכן סקר זה");
+        return;
+      }
+
+      // For managers, limit status options
+      if (currentUser.role === "מנהלת" && !canEdit(audit.ownerId)) {
+        if (newStatus !== "הסתיים" && newStatus !== "בבקרה") {
+          toast.error("מנהלים יכולים לעדכן רק לסטטוס 'הסתיים' או 'בבקרה'");
+          return;
+        }
+      }
+
+      const reason = `עדכון סטטוס ל-${newStatus} מהארכיון`;
+      
+      // Update status in database
+      const success = await updateAuditStatusInDb(audit.id, newStatus, reason, currentUser.name);
+      
+      if (success) {
+        // Reload audits from database to get updated data
+        await loadAudits();
+        toast.success(`סטטוס הסקר עודכן ל-${newStatus}`);
+        
+        // If status changed from "הסתיים" to something else, the audit will automatically move out of archive view
+        if (audit.currentStatus === "הסתיים" && newStatus !== "הסתיים") {
+          toast.success("הסקר הוחזר לרשימת הסקרים הפעילים");
+        }
+      } else {
+        toast.error("שגיאה בעדכון סטטוס הסקר");
+      }
+    } catch (error) {
+      console.error("[Archive] Error updating status:", error);
+      toast.error("שגיאה בעדכון סטטוס הסקר");
     }
   };
 
@@ -89,6 +145,17 @@ const ArchivePage = () => {
   };
 
   if (!currentUser) return null;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center" dir="rtl">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900 mx-auto"></div>
+          <p className="mt-4 text-gray-600">טוען נתוני ארכיון...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-100" dir="rtl">
@@ -136,7 +203,7 @@ const ArchivePage = () => {
               onEditAudit={(audit) => {}}
               onDeleteAudit={handleAuditDelete}
               onEmailClick={() => {}}
-              onStatusChange={() => {}}
+              onStatusChange={handleStatusChange}
               isArchive={true}
               onDataChange={loadAudits}
             />
